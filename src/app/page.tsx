@@ -1,103 +1,104 @@
-import Image from "next/image";
+'use client';
+
+import Link from 'next/link';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
+import { useAuth } from '@/lib/auth';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const router = useRouter();
+  const { user } = useAuth();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery && selectedLocation) {
+      const params = new URLSearchParams({
+        q: searchQuery,
+        lat: selectedLocation.lat.toString(),
+        lng: selectedLocation.lng.toString()
+      });
+      router.push(`/search?${params.toString()}`);
+    }
+  };
+
+  return (
+    <main className="flex flex-col min-h-screen">
+      {/* Hero Section */}
+      <section className="w-full bg-primary-yellow">
+        <div className="container mx-auto px-4 py-20 text-center">
+          <h1 className="text-5xl font-bold text-primary-navy mb-6">
+            Find Your Dog's Perfect Paw Pal
+          </h1>
+          <p className="text-xl text-gray-700 mb-8">
+            Connect with trusted local hosts for walks, daycare, and vacation sitting
+          </p>
+          
+          {/* Search Bar */}
+          <div className="max-w-2xl mx-auto">
+            <form onSubmit={handleSearch} className="flex gap-2">
+              <AddressAutocomplete
+                value={searchQuery}
+                onChange={setSearchQuery}
+                onSelect={(address) => {
+                  setSearchQuery(address.place_name);
+                  setSelectedLocation({
+                    lat: address.center[1],
+                    lng: address.center[0]
+                  });
+                }}
+                placeholder="Enter your location"
+                className="flex-1 p-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-coral"
+              />
+              <button 
+                type="submit"
+                className="bg-primary-coral text-white px-6 py-4 rounded-lg hover:bg-opacity-90 transition flex items-center gap-2"
+              >
+                <span>Search</span>
+              </button>
+            </form>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="w-full py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center p-6">
+              <h3 className="text-xl font-semibold text-primary-navy mb-4">Trusted Community</h3>
+              <p className="text-gray-600">Connect with verified local dog lovers</p>
+            </div>
+            <div className="text-center p-6">
+              <h3 className="text-xl font-semibold text-primary-navy mb-4">Flexible Care</h3>
+              <p className="text-gray-600">Find the perfect match for your dog's needs</p>
+            </div>
+            <div className="text-center p-6">
+              <h3 className="text-xl font-semibold text-primary-navy mb-4">No Fees</h3>
+              <p className="text-gray-600">Direct connections, no middleman fees</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section - Only show if user is not logged in */}
+      {!user && (
+        <section className="w-full bg-primary-navy py-16">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="text-3xl font-bold text-white mb-6">Ready to Find a Paw Pal?</h2>
+            <div className="flex gap-4 justify-center">
+              <Link href="/signup" className="bg-primary-coral text-white px-8 py-3 rounded-lg hover:bg-opacity-90 transition">
+                Sign Up
+              </Link>
+              <Link href="/login" className="bg-white text-primary-navy px-8 py-3 rounded-lg hover:bg-opacity-90 transition">
+                Log In
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+    </main>
   );
 }

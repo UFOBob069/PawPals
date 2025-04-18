@@ -1,10 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { FaSearch } from 'react-icons/fa';
 
+interface MapboxFeature {
+  id: string;
+  text: string;
+  place_name: string;
+  center: [number, number];
+}
+
 interface AddressAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
-  onSelect: (address: { text: string; place_name: string; center: [number, number] }) => void;
+  onSelect: (address: MapboxFeature) => void;
   placeholder?: string;
   className?: string;
   id?: string;
@@ -22,7 +29,7 @@ export default function AddressAutocomplete({
   name,
   'aria-label': ariaLabel,
 }: AddressAutocompleteProps) {
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<MapboxFeature[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);

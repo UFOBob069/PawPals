@@ -7,9 +7,10 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
-  User
+  User,
+  AuthError
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
 interface AuthContextType {
@@ -34,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const auth = getAuth();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);
     });
@@ -45,8 +46,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
-    } catch (error: any) {
-      throw new Error(error.message);
+    } catch (error) {
+      const authError = error as AuthError;
+      throw new Error(authError.message);
     }
   };
 
@@ -62,16 +64,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date().toISOString(),
         role: 'user'
       });
-    } catch (error: any) {
-      throw new Error(error.message);
+    } catch (error) {
+      const authError = error as AuthError;
+      throw new Error(authError.message);
     }
   };
 
   const signOut = async () => {
     try {
       await firebaseSignOut(auth);
-    } catch (error: any) {
-      throw new Error(error.message);
+    } catch (error) {
+      const authError = error as AuthError;
+      throw new Error(authError.message);
     }
   };
 

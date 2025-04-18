@@ -78,12 +78,9 @@ export default function MapComponent({ markers = [], center }: MapComponentProps
 
   useEffect(() => {
     setIsMounted(true);
-    console.log('Map mounted, markers:', markers);
-    console.log('Center:', center);
 
     // If there are markers, center the map on the first marker
     if (markers.length > 0) {
-      console.log('Centering on first marker:', markers[0]);
       setViewState(prev => ({
         ...prev,
         latitude: markers[0].lat,
@@ -91,7 +88,6 @@ export default function MapComponent({ markers = [], center }: MapComponentProps
         zoom: markers.length > 1 ? 11 : 13,
       }));
     } else if (center) {
-      console.log('Centering on provided location:', center);
       setViewState(prev => ({
         ...prev,
         latitude: center.lat,
@@ -108,9 +104,6 @@ export default function MapComponent({ markers = [], center }: MapComponentProps
       </div>
     );
   }
-
-  console.log('Rendering map with markers:', markers);
-  console.log('Current viewState:', viewState);
 
   return (
     <div className="h-[500px] w-full rounded-lg overflow-hidden relative">

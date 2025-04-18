@@ -46,10 +46,41 @@ const BREED_OPTIONS = {
 
 const MAPBOX_API_KEY = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
+interface Location {
+  address: string;
+  lat: number;
+  lng: number;
+}
+
+interface DogDetails {
+  breed: string;
+  size: string;
+  specialNeeds: string;
+}
+
+interface Requirements {
+  experienceRequired: boolean;
+  transportationRequired: boolean;
+  homeTypePreference: string;
+}
+
+interface FormData {
+  serviceType: string;
+  startDate: string;
+  endDate: string;
+  recurring: boolean;
+  description: string;
+  location: Location;
+  dogDetails: DogDetails;
+  rate: string;
+  rateType: string;
+  requirements: Requirements;
+}
+
 export default function PostJobPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     serviceType: 'daycare',
     startDate: '',
     endDate: '',
@@ -87,13 +118,21 @@ export default function PostJobPage() {
     
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
-      setFormData(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent as keyof typeof prev],
-          [child]: type === 'checkbox' ? checked : value
+      setFormData(prev => {
+        const parentKey = parent as keyof FormData;
+        const parentObj = prev[parentKey];
+        
+        if (typeof parentObj === 'object' && parentObj !== null) {
+          return {
+            ...prev,
+            [parentKey]: {
+              ...parentObj,
+              [child]: type === 'checkbox' ? checked : value
+            }
+          };
         }
-      }));
+        return prev;
+      });
     } else {
       setFormData(prev => ({
         ...prev,

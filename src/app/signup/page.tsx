@@ -12,11 +12,10 @@ import {
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { User } from '@/types';
-import { FaGoogle, FaApple } from 'react-icons/fa';
+import { FaGoogle } from 'react-icons/fa';
 
 export default function SignupPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -85,8 +84,9 @@ export default function SignupPage() {
       await setDoc(doc(db, 'users', userCredential.user.uid), userData);
 
       router.push('/');
-    } catch (err) {
-      setError('Failed to create account');
+    } catch (error) {
+      console.error('Signup error:', error);
+      setError('Failed to create account. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -112,8 +112,9 @@ export default function SignupPage() {
 
       await setDoc(doc(db, 'users', result.user.uid), userData);
       router.push('/');
-    } catch (err) {
-      setError('Failed to sign up with Google');
+    } catch (error) {
+      console.error('Google signup error:', error);
+      setError('Failed to sign up with Google. Please try again.');
     } finally {
       setLoading(false);
     }

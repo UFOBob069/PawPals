@@ -3,15 +3,16 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, or } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { FaPaperPlane } from 'react-icons/fa';
 import Link from 'next/link';
 
 interface Message {
   id: string;
-  from: string;
-  to: string;
+  from?: string;
+  to?: string;
+  participants?: string[];
   text: string;
   subject: string;
   createdAt: any;
@@ -32,7 +33,7 @@ export default function InboxPage() {
       return;
     }
 
-    // Query messages where the current user is either the sender or recipient
+    // Query messages where the current user is either the sender, recipient, or participant
     const messagesQuery = query(
       collection(db, 'messages'),
       where('to', '==', user.uid),
@@ -62,8 +63,15 @@ export default function InboxPage() {
 
     try {
       const messageData = {
-        from: user.uid,
-        to: selectedMessage.from === user.uid ? selectedMessage.to : selectedMessage.from,
+        participants: [
+          user.uid,
+          selectedMessage.participants 
+            ? selectedMessage.participants.find(id => id !== user.uid)
+            : selectedMessage.from === user.uid 
+              ? selectedMessage.to 
+              : selectedMessage.from
+        ],
+        senderUid: user.uid,
         text: newMessage.trim(),
         subject: `Re: ${selectedMessage.subject}`,
         createdAt: serverTimestamp(),

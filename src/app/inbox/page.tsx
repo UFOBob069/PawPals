@@ -17,15 +17,35 @@ interface Message {
   subject: string;
   createdAt: any;
   read: boolean;
+  senderUid: string;
 }
 
 export default function InboxPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Group messages by subject
+  const messageThreads = messages.reduce((threads, message) => {
+    const baseSubject = message.subject.replace(/^Re: /, '');
+    if (!threads[baseSubject]) {
+      threads[baseSubject] = [];
+    }
+    threads[baseSubject].push(message);
+    return threads;
+  }, {} as Record<string, Message[]>);
+
+  // Get unique subjects for the left panel
+  const uniqueSubjects = Object.keys(messageThreads).map(subject => ({
+    subject,
+    latestMessage: messageThreads[subject].reduce((latest, msg) => 
+      latest.createdAt > msg.createdAt ? latest : msg
+    ),
+    unread: messageThreads[subject].some(msg => !msg.read && msg.senderUid !== user?.uid)
+  })).sort((a, b) => b.latestMessage.createdAt - a.latestMessage.createdAt);
 
   useEffect(() => {
     if (!user) {
@@ -33,10 +53,9 @@ export default function InboxPage() {
       return;
     }
 
-    // Query messages where the current user is either the sender, recipient, or participant
     const messagesQuery = query(
       collection(db, 'messages'),
-      where('to', '==', user.uid),
+      where('participants', 'array-contains', user.uid),
       orderBy('createdAt', 'desc')
     );
 
@@ -47,33 +66,37 @@ export default function InboxPage() {
       })) as Message[];
 
       setMessages(messageData);
-      if (!selectedMessage && messageData.length > 0) {
-        setSelectedMessage(messageData[0]);
+      if (!selectedSubject && messageData.length > 0) {
+        const firstSubject = messageData[0].subject.replace(/^Re: /, '');
+        setSelectedSubject(firstSubject);
       }
     });
 
     return () => unsubscribe();
-  }, [user, selectedMessage, router]);
+  }, [user, router]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !selectedMessage || !newMessage.trim()) return;
+    if (!user || !selectedSubject || !newMessage.trim()) return;
 
     setLoading(true);
 
     try {
+      const currentThread = messageThreads[selectedSubject];
+      const lastMessage = currentThread[0]; // Most recent message in thread
+      
       const messageData = {
         participants: [
           user.uid,
-          selectedMessage.participants 
-            ? selectedMessage.participants.find(id => id !== user.uid)
-            : selectedMessage.from === user.uid 
-              ? selectedMessage.to 
-              : selectedMessage.from
+          lastMessage.participants 
+            ? lastMessage.participants.find(id => id !== user.uid)
+            : lastMessage.from === user.uid 
+              ? lastMessage.to 
+              : lastMessage.from
         ],
         senderUid: user.uid,
         text: newMessage.trim(),
-        subject: `Re: ${selectedMessage.subject}`,
+        subject: `Re: ${selectedSubject}`,
         createdAt: serverTimestamp(),
         read: false
       };
@@ -118,23 +141,23 @@ export default function InboxPage() {
                 <h2 className="text-lg font-semibold text-primary-navy">Messages</h2>
               </div>
               <div className="divide-y divide-gray-200">
-                {messages.map(message => (
+                {uniqueSubjects.map(({ subject, latestMessage, unread }) => (
                   <button
-                    key={message.id}
-                    onClick={() => setSelectedMessage(message)}
+                    key={subject}
+                    onClick={() => setSelectedSubject(subject)}
                     className={`w-full p-4 text-left hover:bg-gray-50 ${
-                      selectedMessage?.id === message.id ? 'bg-primary-yellow/20' : ''
-                    } ${!message.read ? 'font-semibold' : ''}`}
+                      selectedSubject === subject ? 'bg-primary-yellow/20' : ''
+                    } ${unread ? 'font-semibold' : ''}`}
                   >
                     <div className="flex flex-col">
                       <div className="text-sm font-medium text-gray-900">
-                        {message.subject}
+                        {subject}
                       </div>
                       <div className="text-sm text-gray-500 truncate">
-                        {message.text}
+                        {latestMessage.text}
                       </div>
                       <div className="text-xs text-gray-400 mt-1">
-                        {message.createdAt?.toDate().toLocaleString()}
+                        {latestMessage.createdAt?.toDate().toLocaleString()}
                       </div>
                     </div>
                   </button>
@@ -142,22 +165,44 @@ export default function InboxPage() {
               </div>
             </div>
 
-            {/* Message View */}
+            {/* Message Thread View */}
             <div className="flex-1 flex flex-col">
-              {selectedMessage ? (
+              {selectedSubject ? (
                 <>
                   <div className="p-4 border-b border-gray-200">
                     <h3 className="text-lg font-semibold text-primary-navy">
-                      {selectedMessage.subject}
+                      {selectedSubject}
                     </h3>
                   </div>
                   <div className="flex-1 overflow-y-auto p-4">
-                    <div className="bg-gray-100 rounded-lg p-4 mb-4">
-                      <p className="text-sm text-gray-900">{selectedMessage.text}</p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        {selectedMessage.createdAt?.toDate().toLocaleString()}
-                      </p>
-                    </div>
+                    {messageThreads[selectedSubject]
+                      .sort((a, b) => a.createdAt - b.createdAt) // Show oldest first
+                      .map(message => (
+                        <div 
+                          key={message.id}
+                          className={`mb-4 ${
+                            message.senderUid === user.uid 
+                              ? 'ml-auto' 
+                              : 'mr-auto'
+                          }`}
+                        >
+                          <div className={`rounded-lg p-4 max-w-[80%] ${
+                            message.senderUid === user.uid
+                              ? 'bg-primary-coral/10 ml-auto'
+                              : 'bg-gray-100'
+                          }`}>
+                            <p className="text-sm text-gray-900">{message.text}</p>
+                            <div className="flex justify-between items-center mt-2">
+                              <span className="text-xs text-primary-coral">
+                                {message.senderUid === user.uid ? 'You' : 'Them'}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {message.createdAt?.toDate().toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                    ))}
                   </div>
                   <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200">
                     <div className="flex space-x-2">
@@ -180,7 +225,7 @@ export default function InboxPage() {
                 </>
               ) : (
                 <div className="flex-1 flex items-center justify-center">
-                  <p className="text-gray-500">Select a message to view</p>
+                  <p className="text-gray-500">Select a conversation to view</p>
                 </div>
               )}
             </div>

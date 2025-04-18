@@ -48,7 +48,7 @@ export default function AddressAutocomplete({
 
   useEffect(() => {
     const fetchSuggestions = async () => {
-      if (!value.trim() || value.length < 3) {
+      if (!value || !value.trim() || value.length < 3) {
         setSuggestions([]);
         return;
       }

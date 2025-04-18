@@ -114,6 +114,14 @@ export default function SearchContent() {
     return d * 0.621371; // Convert to miles
   };
 
+  const getZoomForDistance = (distance: number) => {
+    // Approximate zoom levels for different distances
+    if (distance <= 5) return 12;
+    if (distance <= 10) return 11;
+    if (distance <= 25) return 10;
+    return 9;
+  };
+
   const fetchServices = async (searchParams?: {
     query?: string;
     serviceType?: string;
@@ -334,11 +342,21 @@ export default function SearchContent() {
                 title: `${getServiceEmoji(result.serviceType)} ${result.ownerName}`,
                 serviceType: result.serviceType,
                 description: result.description,
-                rate: `$${result.rate}/${result.rateType}`,
+                rate: result.rate,
+                rateType: result.rateType,
+                isProvider: result.isProvider,
                 detailsUrl: result.isProvider ? `/providers/${result.id}` : `/services/${result.id}`
               }))}
-              center={selectedLocation || { lat: 40.7128, lng: -74.0060 }}
-              zoom={selectedLocation ? 12 : 8}
+              center={selectedLocation || 
+                (searchResults.length > 0 
+                  ? { 
+                      lat: searchResults[0].location.lat, 
+                      lng: searchResults[0].location.lng 
+                    } 
+                  : { lat: 40.7128, lng: -74.0060 })}
+              zoom={selectedLocation 
+                ? getZoomForDistance(parseInt(filters.distance)) 
+                : searchResults.length > 0 ? 10 : 8}
             />
           </div>
         ) : (

@@ -157,8 +157,10 @@ export default function ServiceDetailsPage() {
             <MapComponent
               markers={[{
                 id: service.id,
-                lat: service.location.lat,
-                lng: service.location.lng,
+                position: {
+                  lat: service.location.lat,
+                  lng: service.location.lng
+                },
                 title: `${service.serviceType} by ${service.ownerName}`,
                 serviceType: service.serviceType,
                 rate: service.rate,

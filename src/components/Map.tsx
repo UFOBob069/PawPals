@@ -35,8 +35,10 @@ interface ViewState {
 
 interface MarkerData {
   id: string;
-  lat: number;
-  lng: number;
+  position: {
+    lat: number;
+    lng: number;
+  };
   title: string;
   description?: string;
   rate?: string;
@@ -51,6 +53,7 @@ interface MapComponentProps {
     lat: number;
     lng: number;
   };
+  zoom?: number;
 }
 
 const getServiceEmoji = (serviceType: string) => {
@@ -66,11 +69,11 @@ const getServiceEmoji = (serviceType: string) => {
   }
 };
 
-export default function MapComponent({ markers = [], center }: MapComponentProps) {
+export default function MapComponent({ markers = [], center, zoom = 11 }: MapComponentProps) {
   const [viewState, setViewState] = useState<ViewState>({
-    latitude: center?.lat || 37.7749,
-    longitude: center?.lng || -122.4194,
-    zoom: 11,
+    latitude: center?.lat ?? 37.7749,
+    longitude: center?.lng ?? -122.4194,
+    zoom: zoom,
   });
 
   const [selectedMarker, setSelectedMarker] = useState<MarkerData | null>(null);
@@ -78,21 +81,28 @@ export default function MapComponent({ markers = [], center }: MapComponentProps
 
   useEffect(() => {
     setIsMounted(true);
+  }, []);
 
-    // If there are markers, center the map on the first marker
-    if (markers.length > 0) {
-      setViewState(prev => ({
-        ...prev,
-        latitude: markers[0].lat,
-        longitude: markers[0].lng,
-        zoom: markers.length > 1 ? 11 : 13,
-      }));
-    } else if (center) {
+  // Update viewState when center or zoom props change
+  useEffect(() => {
+    if (center) {
       setViewState(prev => ({
         ...prev,
         latitude: center.lat,
         longitude: center.lng,
-        zoom: 13,
+        zoom: zoom,
+      }));
+    }
+  }, [center, zoom]);
+
+  // Update viewState when markers change and no center is provided
+  useEffect(() => {
+    if (!center && markers.length > 0) {
+      setViewState(prev => ({
+        ...prev,
+        latitude: markers[0].position.lat,
+        longitude: markers[0].position.lng,
+        zoom: markers.length > 1 ? 11 : 13,
       }));
     }
   }, [markers, center]);
@@ -114,13 +124,14 @@ export default function MapComponent({ markers = [], center }: MapComponentProps
         mapStyle="mapbox://styles/mapbox/streets-v12"
         style={{ width: '100%', height: '100%' }}
         reuseMaps
+        onClick={() => setSelectedMarker(null)}
       >
         <NavigationControl position="top-right" />
         {markers.map((marker) => (
           <Marker
             key={marker.id}
-            latitude={marker.lat}
-            longitude={marker.lng}
+            latitude={marker.position.lat}
+            longitude={marker.position.lng}
             anchor="bottom"
             onClick={(e) => {
               e.originalEvent.stopPropagation();
@@ -166,8 +177,8 @@ export default function MapComponent({ markers = [], center }: MapComponentProps
         ))}
         {selectedMarker && (
           <Popup
-            latitude={selectedMarker.lat}
-            longitude={selectedMarker.lng}
+            latitude={selectedMarker.position.lat}
+            longitude={selectedMarker.position.lng}
             onClose={() => setSelectedMarker(null)}
             closeButton={true}
             closeOnClick={false}

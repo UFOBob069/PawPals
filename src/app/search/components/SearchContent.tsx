@@ -263,8 +263,10 @@ export default function SearchContent() {
                 Location
               </label>
               <AddressAutocomplete
-                onLocationSelect={(location) => setSelectedLocation(location)}
-                defaultValue=""
+                onSelect={(address) => setSelectedLocation({
+                  lat: address.center[1],
+                  lng: address.center[0]
+                })}
                 value={searchQuery || ''}
                 onChange={(value) => setSearchQuery(value)}
                 placeholder="Enter location..."

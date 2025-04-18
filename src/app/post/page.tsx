@@ -214,7 +214,7 @@ export default function PostJobPage() {
           lng: coordinates.lng,
         },
         ownerUid: user.uid,
-        ownerName: user.name || 'Anonymous',
+        ownerName: user.displayName || 'Anonymous',
         ownerEmail: user.email,
         status: 'open',
         createdAt: new Date().toISOString(),

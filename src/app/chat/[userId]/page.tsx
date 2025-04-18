@@ -67,8 +67,8 @@ export default function ChatPage() {
 
     try {
       await addDoc(collection(db, 'messages'), {
-        from: user.uid,
-        to: params.userId,
+        participants: [user.uid, params.userId],
+        senderUid: user.uid,
         subject: message.subject,
         text: message.text,
         createdAt: serverTimestamp(),

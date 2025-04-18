@@ -3,11 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { FaSearch, FaFilter, FaWalking, FaHome, FaRuler, FaStar, FaList, FaMap, FaMapMarkerAlt } from 'react-icons/fa';
-import { MdPets } from 'react-icons/md';
+import { FaList, FaMap, FaMapMarkerAlt } from 'react-icons/fa';
 import BreedFilter from '@/components/BreedFilter';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, CollectionReference, DocumentData, Query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 // Types
@@ -27,8 +26,8 @@ interface SearchResult {
   rate: string;
   rateType: string;
   createdAt: string;
-  isProvider?: boolean;  // New field to distinguish between jobs and providers
-  services?: {  // New field for provider services
+  isProvider?: boolean;
+  services?: {
     walk: boolean;
     daycare: boolean;
     boarding: boolean;
@@ -70,10 +69,10 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
-  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(() => {
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | undefined>(() => {
     const lat = searchParams.get('lat');
     const lng = searchParams.get('lng');
-    return lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : null;
+    return lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : undefined;
   });
   const [resultType, setResultType] = useState<ResultType>(() => {
     const type = searchParams.get('type');
@@ -119,91 +118,84 @@ export default function SearchPage() {
     query?: string;
     serviceType?: string;
     breeds?: string[];
-    location?: { lat: number; lng: number } | null;
+    location?: { lat: number; lng: number } | undefined;
     distance?: number;
   }) => {
     setLoading(true);
     setError('');
     try {
-      let combinedResults: SearchResult[] = [];
+      // Fetch job posts
+      const jobsCollection = collection(db, 'jobs') as CollectionReference<DocumentData>;
+      const jobsQuery: Query<DocumentData> = searchParams?.serviceType
+        ? query(jobsCollection, where('serviceType', '==', searchParams.serviceType))
+        : jobsCollection;
 
-      // Fetch job posts if showing all or jobs
-      if (resultType === 'all' || resultType === 'jobs') {
-        let jobsQuery = collection(db, 'jobs');
-        
-        if (searchParams?.serviceType) {
-          jobsQuery = query(jobsQuery, where('serviceType', '==', searchParams.serviceType));
+      const jobsSnapshot = await getDocs(jobsQuery);
+      const jobResults: SearchResult[] = [];
+
+      jobsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.location?.lat && data.location?.lng) {
+          jobResults.push({
+            id: doc.id,
+            ownerName: data.ownerName,
+            ownerUid: data.ownerUid,
+            serviceType: data.serviceType,
+            description: data.description,
+            location: data.location,
+            rate: data.rate,
+            rateType: data.rateType,
+            createdAt: data.createdAt,
+            isProvider: false
+          });
         }
+      });
 
-        const jobsSnapshot = await getDocs(jobsQuery);
-        const jobResults: SearchResult[] = [];
+      // Fetch service providers
+      const providersCollection = collection(db, 'users') as CollectionReference<DocumentData>;
+      const providersQuery: Query<DocumentData> = query(providersCollection, where('role.host', '==', true));
+      
+      const providersSnapshot = await getDocs(providersQuery);
+      const providerResults: SearchResult[] = [];
 
-        jobsSnapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.location?.lat && data.location?.lng) {
-            jobResults.push({
+      providersSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.location?.lat && data.location?.lng) {
+          // Only include providers that offer the selected service type
+          if (!searchParams?.serviceType || data.services?.[searchParams.serviceType]) {
+            providerResults.push({
               id: doc.id,
-              ownerName: data.ownerName,
-              ownerUid: data.ownerUid,
-              serviceType: data.serviceType,
-              description: data.description,
+              ownerName: data.name,
+              ownerUid: doc.id,
+              serviceType: Object.entries(data.services || {})
+                .filter(([, enabled]) => enabled)
+                .map(([service]) => service)
+                .join(', '),
+              description: data.bio || '',
               location: data.location,
-              rate: data.rate,
-              rateType: data.rateType,
-              createdAt: data.createdAt,
-              isProvider: false
+              rate: data.rate || '25',
+              rateType: 'hour',
+              createdAt: data.createdAt || new Date().toISOString(),
+              isProvider: true,
+              services: data.services
             });
           }
-        });
+        }
+      });
 
-        combinedResults = [...combinedResults, ...jobResults];
-      }
+      // Combine and filter results based on location if specified
+      let combinedResults = [...jobResults, ...providerResults];
 
-      // Fetch service providers if showing all or providers
-      if (resultType === 'all' || resultType === 'providers') {
-        let providersQuery = collection(db, 'users');
-        providersQuery = query(providersQuery, where('role.host', '==', true));
-        
-        const providersSnapshot = await getDocs(providersQuery);
-        const providerResults: SearchResult[] = [];
-
-        providersSnapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.location?.lat && data.location?.lng) {
-            if (!searchParams?.serviceType || data.services?.[searchParams.serviceType]) {
-              providerResults.push({
-                id: doc.id,
-                ownerName: data.name,
-                ownerUid: doc.id,
-                serviceType: Object.entries(data.services || {})
-                  .filter(([_, enabled]) => enabled)
-                  .map(([service]) => service)
-                  .join(', '),
-                description: data.bio || '',
-                location: data.location,
-                rate: data.rate || '25',
-                rateType: 'hour',
-                createdAt: data.createdAt || new Date().toISOString(),
-                isProvider: true,
-                services: data.services
-              });
-            }
-          }
-        });
-
-        combinedResults = [...combinedResults, ...providerResults];
-      }
-
-      // Filter by location if specified
       if (searchParams?.location && searchParams?.distance) {
+        const distance = searchParams.distance;
         combinedResults = combinedResults.filter((result) => {
-          const distance = calculateDistance(
+          const dist = calculateDistance(
             searchParams.location!.lat,
             searchParams.location!.lng,
             result.location.lat,
             result.location.lng
           );
-          return distance <= searchParams.distance;
+          return dist <= distance;
         });
       }
 
@@ -341,8 +333,6 @@ export default function SearchPage() {
           {/* Breed Filter */}
           <div className="relative">
             <BreedFilter
-              id="breed-filter"
-              name="breeds"
               selectedBreeds={selectedBreeds}
               onBreedsChange={(breeds) => {
                 setSelectedBreeds(breeds);
@@ -350,6 +340,8 @@ export default function SearchPage() {
                   query: searchQuery,
                   serviceType: filters.serviceType,
                   breeds,
+                  location: selectedLocation,
+                  distance: parseInt(filters.distance),
                 });
               }}
             />

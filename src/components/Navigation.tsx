@@ -26,6 +26,7 @@ export default function Navigation() {
   const publicNavItems = [
     { href: '/', icon: FaHome, label: 'Home' },
     { href: '/search', icon: FaSearch, label: 'Find Care' },
+    { href: '/about', icon: FaPaw, label: 'About' },
   ];
 
   // Auth-required navigation items

@@ -8,12 +8,19 @@ export default function AboutPage() {
     <main className="min-h-screen bg-white">
       {/* Hero Section */}
       <section className="relative w-full bg-primary-yellow py-16 overflow-hidden">
-        <div className="absolute inset-0 grid grid-cols-12 gap-8 p-8">
-          {[...Array(60)].map((_, i) => (
-            <FaPaw 
-              key={i} 
-              className="text-black/[0.1] text-2xl transform rotate-45"
-            />
+        <div className="absolute inset-0">
+          {[...Array(6)].map((_, row) => (
+            [...Array(8)].map((_, col) => (
+              <FaPaw 
+                key={`${row}-${col}`} 
+                className="absolute text-black/[0.15] text-2xl transform"
+                style={{
+                  left: `${(col * 12.5) + (row % 2 ? 6.25 : 0)}%`,
+                  top: `${(row * 20) + (col % 2 ? 10 : 0)}%`,
+                  transform: `rotate(${Math.floor(Math.random() * 60) - 30}deg) scale(1.2)`,
+                }}
+              />
+            ))
           ))}
         </div>
         <div className="container mx-auto px-4 text-center relative">

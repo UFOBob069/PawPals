@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { doc, updateDoc, getDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { FaEdit, FaSave, FaDog, FaSignOutAlt, FaTrash, FaStar, FaStarHalf } from 'react-icons/fa';
+import { FaEdit, FaSave, FaDog, FaSignOutAlt, FaTrash, FaStar, FaStarHalf, FaPaw } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import Link from 'next/link';
@@ -312,71 +312,88 @@ export default function ProfilePage() {
         <div className="bg-white rounded-lg shadow overflow-hidden">
           {/* Profile Header */}
           <div className="bg-primary-yellow p-6 relative">
-            <div className="absolute inset-0 opacity-5">
-              <svg width="100%" height="100%">
-                <defs>
-                  <pattern id="paw-pattern" x="0" y="0" width="50" height="50" patternUnits="userSpaceOnUse">
-                    <path d="M11 16c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3zm3-3c1.657 0 3 1.343 3 3s-1.343 3-3 3-3-1.343-3-3 1.343-3 3-3zm6 0c1.657 0 3 1.343 3 3s-1.343 3-3 3-3-1.343-3-3 1.343-3 3-3zm4 3c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3z" 
-                      fill="currentColor" />
-                  </pattern>
-                </defs>
-                <rect width="100%" height="100%" fill="url(#paw-pattern)" />
-              </svg>
+            <div className="absolute inset-0">
+              {[...Array(4)].map((_, row) => (
+                [...Array(6)].map((_, col) => (
+                  <FaPaw 
+                    key={`${row}-${col}`} 
+                    className="absolute text-black/[0.15] text-2xl transform"
+                    style={{
+                      left: `${(col * 16.67) + (row % 2 ? 8.33 : 0)}%`,
+                      top: `${(row * 25) + (col % 2 ? 12.5 : 0)}%`,
+                      transform: `rotate(${Math.floor(Math.random() * 60) - 30}deg) scale(1.2)`,
+                    }}
+                  />
+                ))
+              ))}
             </div>
-            <div className="relative flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center">
-                  {user.photoURL ? (
-                    <img
-                      src={user.photoURL}
-                      alt={profile.name}
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  ) : (
-                    <FaDog className="text-4xl text-primary-navy" />
-                  )}
-                </div>
-                <div>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      name="name"
-                      value={profile.name}
-                      onChange={handleInputChange}
-                      className="text-2xl font-bold text-primary-navy bg-transparent border-b border-primary-navy focus:outline-none"
-                    />
-                  ) : (
-                    <h1 className="text-2xl font-bold text-primary-navy">{profile.name}</h1>
-                  )}
-                  <p className="text-gray-600">
-                    {profile.role.owner ? 'Dog Owner' : ''}
-                    {profile.role.owner && profile.role.host ? ' & ' : ''}
-                    {profile.role.host ? 'Pet Care Host' : ''}
-                  </p>
-                  {profile.role.host && (
-                    <div className="flex items-center mt-2">
-                      <div className="flex">{renderStars(averageRating)}</div>
-                      <span className="ml-2 text-sm text-gray-600">
-                        ({reviews.length} {reviews.length === 1 ? 'review' : 'reviews'})
-                      </span>
-                    </div>
-                  )}
-                </div>
+            <div className="relative">
+              <div className="absolute inset-0 opacity-5">
+                <svg width="100%" height="100%">
+                  <defs>
+                    <pattern id="paw-pattern" x="0" y="0" width="50" height="50" patternUnits="userSpaceOnUse">
+                      <path d="M11 16c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3zm3-3c1.657 0 3 1.343 3 3s-1.343 3-3 3-3-1.343-3-3 1.343-3 3-3zm6 0c1.657 0 3 1.343 3 3s-1.343 3-3 3-3-1.343-3-3 1.343-3 3-3zm4 3c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3z" 
+                        fill="currentColor" />
+                    </pattern>
+                  </defs>
+                  <rect width="100%" height="100%" fill="url(#paw-pattern)" />
+                </svg>
               </div>
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => setIsEditing(!isEditing)}
-                  className="text-primary-navy hover:text-primary-coral"
-                >
-                  {isEditing ? <FaSave className="text-2xl" /> : <FaEdit className="text-2xl" />}
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center space-x-2 text-primary-navy hover:text-primary-coral"
-                >
-                  <FaSignOutAlt className="text-xl" />
-                  <span>Logout</span>
-                </button>
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center">
+                    {user.photoURL ? (
+                      <img
+                        src={user.photoURL}
+                        alt={profile.name}
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <FaDog className="text-4xl text-primary-navy" />
+                    )}
+                  </div>
+                  <div>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        name="name"
+                        value={profile.name}
+                        onChange={handleInputChange}
+                        className="text-2xl font-bold text-primary-navy bg-transparent border-b border-primary-navy focus:outline-none"
+                      />
+                    ) : (
+                      <h1 className="text-2xl font-bold text-primary-navy">{profile.name}</h1>
+                    )}
+                    <p className="text-gray-600">
+                      {profile.role.owner ? 'Dog Owner' : ''}
+                      {profile.role.owner && profile.role.host ? ' & ' : ''}
+                      {profile.role.host ? 'Pet Care Host' : ''}
+                    </p>
+                    {profile.role.host && (
+                      <div className="flex items-center mt-2">
+                        <div className="flex">{renderStars(averageRating)}</div>
+                        <span className="ml-2 text-sm text-gray-600">
+                          ({reviews.length} {reviews.length === 1 ? 'review' : 'reviews'})
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => setIsEditing(!isEditing)}
+                    className="text-primary-navy hover:text-primary-coral"
+                  >
+                    {isEditing ? <FaSave className="text-2xl" /> : <FaEdit className="text-2xl" />}
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center space-x-2 text-primary-navy hover:text-primary-coral"
+                  >
+                    <FaSignOutAlt className="text-xl" />
+                    <span>Logout</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

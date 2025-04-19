@@ -1,0 +1,14 @@
+{
+  "name": "PawPals",
+  "short_name": "PawPals",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "32x32",
+      "type": "image/x-icon"
+    }
+  ],
+  "theme_color": "#FF6B6B",
+  "background_color": "#FFFFFF",
+  "display": "standalone"
+} 

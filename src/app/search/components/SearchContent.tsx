@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { FaList, FaMap, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaList, FaMap, FaMapMarkerAlt, FaFilter, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import BreedFilter from '@/components/BreedFilter';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { collection, query, where, getDocs, CollectionReference, DocumentData, Query } from 'firebase/firestore';
@@ -79,6 +79,7 @@ export default function SearchContent() {
     const type = searchParams.get('type');
     return (type === 'jobs' || type === 'providers' || type === 'all') ? type : 'all';
   });
+  const [isFiltersVisible, setIsFiltersVisible] = useState(false);
 
   // Initial load of services based on URL query
   useEffect(() => {
@@ -236,8 +237,26 @@ export default function SearchContent() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Mobile Filter Toggle */}
+        <div className="lg:hidden mb-4">
+          <button
+            onClick={() => setIsFiltersVisible(!isFiltersVisible)}
+            className="w-full flex items-center justify-between px-4 py-3 bg-white rounded-lg shadow-sm border border-gray-200"
+          >
+            <div className="flex items-center gap-2">
+              <FaFilter className="text-gray-500" />
+              <span className="font-medium text-gray-700">Filters</span>
+            </div>
+            {isFiltersVisible ? (
+              <FaChevronUp className="text-gray-500" />
+            ) : (
+              <FaChevronDown className="text-gray-500" />
+            )}
+          </button>
+        </div>
+
         {/* Search Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div className={`bg-white rounded-lg shadow-sm p-6 mb-6 lg:block ${isFiltersVisible ? 'block' : 'hidden'}`}>
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             <div className="md:col-span-3">
               <label className="block text-sm font-medium text-gray-700 mb-1">

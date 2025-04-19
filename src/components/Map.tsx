@@ -149,9 +149,11 @@ export default function MapComponent({ markers = [], center, zoom = 11 }: MapCom
                     textShadow: '0 2px 4px rgba(0,0,0,0.2)'
                   }}
                 />
-                <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4 ${
+                <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-5 h-5 ${
                   marker.isProvider ? 'bg-primary-navy/20' : 'bg-white/75'
-                } rounded-full`} />
+                } rounded-full flex items-center justify-center text-xs`}>
+                  {marker.serviceType && getServiceEmoji(marker.serviceType)}
+                </div>
               </div>
               <div 
                 className={`absolute -bottom-2 left-1/2 transform -translate-x-1/2 translate-y-full 
@@ -160,7 +162,7 @@ export default function MapComponent({ markers = [], center, zoom = 11 }: MapCom
                            border border-gray-100 z-10`}
               >
                 <div className="font-medium text-primary-navy">
-                  {marker.serviceType && getServiceEmoji(marker.serviceType)} {marker.title}
+                  {marker.title}
                 </div>
                 {marker.rate && (
                   <div className={`text-xs mt-1 ${
@@ -188,7 +190,7 @@ export default function MapComponent({ markers = [], center, zoom = 11 }: MapCom
           >
             <div className="p-4 min-w-[200px]">
               <h3 className="font-semibold text-lg text-primary-navy mb-2">
-                {selectedMarker.serviceType && getServiceEmoji(selectedMarker.serviceType)} {selectedMarker.title}
+                {selectedMarker.title}
               </h3>
               {selectedMarker.description && (
                 <p className="text-sm text-gray-600 mb-3">
@@ -219,4 +221,4 @@ export default function MapComponent({ markers = [], center, zoom = 11 }: MapCom
       </MapGL>
     </div>
   );
-} 
+}

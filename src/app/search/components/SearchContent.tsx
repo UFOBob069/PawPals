@@ -32,6 +32,7 @@ interface SearchResult {
     daycare: boolean;
     boarding: boolean;
   };
+  breeds?: string[];
 }
 
 // Dynamically import the Map component
@@ -134,9 +135,15 @@ export default function SearchContent() {
     try {
       // Fetch job posts
       const jobsCollection = collection(db, 'jobs') as CollectionReference<DocumentData>;
-      const jobsQuery: Query<DocumentData> = searchParams?.serviceType
-        ? query(jobsCollection, where('serviceType', '==', searchParams.serviceType))
-        : jobsCollection;
+      let jobsQuery: Query<DocumentData> = jobsCollection;
+      
+      if (searchParams?.serviceType) {
+        jobsQuery = query(jobsQuery, where('serviceType', '==', searchParams.serviceType));
+      }
+      
+      if (searchParams?.breeds && searchParams.breeds.length > 0) {
+        jobsQuery = query(jobsQuery, where('breeds', 'array-contains-any', searchParams.breeds));
+      }
 
       const jobsSnapshot = await getDocs(jobsQuery);
       const jobResults: SearchResult[] = [];
@@ -154,6 +161,7 @@ export default function SearchContent() {
             rate: data.rate,
             rateType: data.rateType,
             createdAt: data.createdAt,
+            breeds: data.breeds || [],
             isProvider: false
           });
         }
@@ -161,7 +169,11 @@ export default function SearchContent() {
 
       // Fetch service providers
       const providersCollection = collection(db, 'users') as CollectionReference<DocumentData>;
-      const providersQuery: Query<DocumentData> = query(providersCollection, where('role.host', '==', true));
+      let providersQuery: Query<DocumentData> = query(providersCollection, where('role.host', '==', true));
+      
+      if (searchParams?.breeds && searchParams.breeds.length > 0) {
+        providersQuery = query(providersQuery, where('acceptedBreeds', 'array-contains-any', searchParams.breeds));
+      }
       
       const providersSnapshot = await getDocs(providersQuery);
       const providerResults: SearchResult[] = [];
@@ -184,6 +196,7 @@ export default function SearchContent() {
               rate: data.rate || '25',
               rateType: 'hour',
               createdAt: data.createdAt || new Date().toISOString(),
+              breeds: data.acceptedBreeds || [],
               isProvider: true,
               services: data.services
             });
@@ -225,8 +238,19 @@ export default function SearchContent() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search Filters */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div className="md:col-span-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Preferred Breeds
+              </label>
+              <BreedFilter
+                selectedBreeds={selectedBreeds}
+                onBreedsChange={setSelectedBreeds}
+                className="w-full"
+              />
+            </div>
+
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Service Type
               </label>
@@ -242,7 +266,7 @@ export default function SearchContent() {
               </select>
             </div>
 
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Distance (miles)
               </label>
@@ -258,7 +282,7 @@ export default function SearchContent() {
               </select>
             </div>
 
-            <div>
+            <div className="md:col-span-3">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Location
               </label>
@@ -274,7 +298,7 @@ export default function SearchContent() {
               />
             </div>
 
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Show
               </label>

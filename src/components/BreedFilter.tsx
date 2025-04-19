@@ -7,9 +7,10 @@ import { IoMdArrowDropdown } from 'react-icons/io';
 interface BreedFilterProps {
   selectedBreeds: string[];
   onBreedsChange: (breeds: string[]) => void;
+  className?: string;
 }
 
-export default function BreedFilter({ selectedBreeds, onBreedsChange }: BreedFilterProps) {
+export default function BreedFilter({ selectedBreeds, onBreedsChange, className = '' }: BreedFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPosition, setDropdownPosition] = useState<'bottom' | 'top'>('bottom');
@@ -53,25 +54,27 @@ export default function BreedFilter({ selectedBreeds, onBreedsChange }: BreedFil
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 border border-neutral-light rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-coral text-sm bg-white min-w-[120px]"
+        className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-coral text-sm bg-white"
       >
-        <MdPets className="text-neutral-dark" />
-        <span className="text-neutral-dark">
-          {selectedBreeds.length ? `${selectedBreeds.length} breeds` : 'Dog Breeds'}
-        </span>
-        <IoMdArrowDropdown className={`text-neutral-dark transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <div className="flex items-center gap-2">
+          <MdPets className="text-gray-400" />
+          <span className="text-gray-700">
+            {selectedBreeds.length ? `${selectedBreeds.length} breeds selected` : 'Select breeds'}
+          </span>
+        </div>
+        <IoMdArrowDropdown className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
         <div 
           className={`absolute ${
             dropdownPosition === 'bottom' ? 'top-full mt-1' : 'bottom-full mb-1'
-          } right-0 w-[300px] bg-white border border-neutral-light rounded-lg shadow-lg z-50`}
+          } left-0 right-0 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-50`}
         >
           <div className="p-4 max-h-[400px] overflow-y-auto">
             {/* Size Categories */}
             <div className="mb-4">
-              <h3 className="font-semibold mb-2 text-sm text-neutral-darker">SIZE CATEGORIES</h3>
+              <h3 className="font-semibold mb-2 text-sm text-gray-700">SIZE CATEGORIES</h3>
               <div className="grid grid-cols-2 gap-2">
                 {[
                   'Tiny (under 5 lbs)',
@@ -83,10 +86,10 @@ export default function BreedFilter({ selectedBreeds, onBreedsChange }: BreedFil
                   <button
                     key={size}
                     onClick={() => toggleBreed(size)}
-                    className={`text-left px-2 py-1 rounded text-sm ${
+                    className={`text-left px-3 py-2 rounded-lg text-sm ${
                       selectedBreeds.includes(size)
                         ? 'bg-primary-coral text-white'
-                        : 'hover:bg-neutral-lightest'
+                        : 'hover:bg-gray-50 text-gray-700'
                     }`}
                   >
                     {size}
@@ -97,7 +100,7 @@ export default function BreedFilter({ selectedBreeds, onBreedsChange }: BreedFil
 
             {/* Popular Small Breeds */}
             <div className="mb-4">
-              <h3 className="font-semibold mb-2 text-sm text-neutral-darker">POPULAR SMALL BREEDS</h3>
+              <h3 className="font-semibold mb-2 text-sm text-gray-700">POPULAR SMALL BREEDS</h3>
               <div className="grid grid-cols-2 gap-2">
                 {[
                   'Dachshund',
@@ -110,10 +113,10 @@ export default function BreedFilter({ selectedBreeds, onBreedsChange }: BreedFil
                   <button
                     key={breed}
                     onClick={() => toggleBreed(breed)}
-                    className={`text-left px-2 py-1 rounded text-sm ${
+                    className={`text-left px-3 py-2 rounded-lg text-sm ${
                       selectedBreeds.includes(breed)
                         ? 'bg-primary-coral text-white'
-                        : 'hover:bg-neutral-lightest'
+                        : 'hover:bg-gray-50 text-gray-700'
                     }`}
                   >
                     {breed}
@@ -124,7 +127,7 @@ export default function BreedFilter({ selectedBreeds, onBreedsChange }: BreedFil
 
             {/* Popular Medium Breeds */}
             <div className="mb-4">
-              <h3 className="font-semibold mb-2 text-sm text-neutral-darker">POPULAR MEDIUM BREEDS</h3>
+              <h3 className="font-semibold mb-2 text-sm text-gray-700">POPULAR MEDIUM BREEDS</h3>
               <div className="grid grid-cols-2 gap-2">
                 {[
                   'Border Collie',
@@ -137,10 +140,10 @@ export default function BreedFilter({ selectedBreeds, onBreedsChange }: BreedFil
                   <button
                     key={breed}
                     onClick={() => toggleBreed(breed)}
-                    className={`text-left px-2 py-1 rounded text-sm ${
+                    className={`text-left px-3 py-2 rounded-lg text-sm ${
                       selectedBreeds.includes(breed)
                         ? 'bg-primary-coral text-white'
-                        : 'hover:bg-neutral-lightest'
+                        : 'hover:bg-gray-50 text-gray-700'
                     }`}
                   >
                     {breed}
@@ -151,7 +154,7 @@ export default function BreedFilter({ selectedBreeds, onBreedsChange }: BreedFil
 
             {/* Popular Large Breeds */}
             <div>
-              <h3 className="font-semibold mb-2 text-sm text-neutral-darker">POPULAR LARGE BREEDS</h3>
+              <h3 className="font-semibold mb-2 text-sm text-gray-700">POPULAR LARGE BREEDS</h3>
               <div className="grid grid-cols-2 gap-2">
                 {[
                   'German Shepherd',
@@ -164,10 +167,10 @@ export default function BreedFilter({ selectedBreeds, onBreedsChange }: BreedFil
                   <button
                     key={breed}
                     onClick={() => toggleBreed(breed)}
-                    className={`text-left px-2 py-1 rounded text-sm ${
+                    className={`text-left px-3 py-2 rounded-lg text-sm ${
                       selectedBreeds.includes(breed)
                         ? 'bg-primary-coral text-white'
-                        : 'hover:bg-neutral-lightest'
+                        : 'hover:bg-gray-50 text-gray-700'
                     }`}
                   >
                     {breed}

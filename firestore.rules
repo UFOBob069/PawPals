@@ -1,26 +1,35 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is accessing their own document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
     // Allow anyone to read job listings
     match /jobs/{jobId} {
       allow read: if true;
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
-      allow update, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.ownerUid;
     }
     
     // Allow authenticated users to read and write their own data
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if true; // Anyone can read user profiles
+      allow write: if isOwner(userId);
     }
     
     // Allow authenticated users to read and write their own messages
     match /messages/{messageId} {
-      allow read: if request.auth != null && 
-        (resource.data.senderUid == request.auth.uid || 
-         resource.data.receiverUid == request.auth.uid);
-      allow create: if request.auth != null && 
-        request.resource.data.senderUid == request.auth.uid;
+      allow read: if isAuthenticated() 
+        && (request.auth.uid in resource.data.participants);
+      allow create: if isAuthenticated() 
+        && request.resource.data.senderUid == request.auth.uid;
     }
     
     // Allow authenticated users to read service listings
@@ -34,6 +43,16 @@ service cloud.firestore {
       allow read, write: if request.auth != null && 
         (request.auth.uid == resource.data.userId || 
          request.auth.uid == resource.data.providerId);
+    }
+
+    // Reviews collection rules
+    match /reviews/{reviewId} {
+      allow read: if true; // Anyone can read reviews
+      allow create: if isAuthenticated() 
+        && request.resource.data.reviewerId == request.auth.uid
+        && request.resource.data.providerId != request.auth.uid; // Can't review yourself
+      allow update, delete: if isAuthenticated() 
+        && resource.data.reviewerId == request.auth.uid; // Only review author can edit/delete
     }
   }
 }

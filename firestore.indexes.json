@@ -26,6 +26,22 @@
         { "fieldPath": "createdAt", "order": "DESCENDING" },
         { "fieldPath": "__name__", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "breeds", "arrayConfig": "CONTAINS_ANY" },
+        { "fieldPath": "serviceType", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "role.host", "order": "ASCENDING" },
+        { "fieldPath": "acceptedBreeds", "arrayConfig": "CONTAINS_ANY" }
+      ]
     }
   ],
   "fieldOverrides": []

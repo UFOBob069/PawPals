@@ -8,6 +8,7 @@ import { db } from '@/lib/firebase';
 import { FaPlus, FaMapMarkerAlt } from 'react-icons/fa';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import Link from 'next/link';
+import BreedFilter from '@/components/BreedFilter';
 
 // Define breed options to match the filter
 const BREED_OPTIONS = {
@@ -75,6 +76,7 @@ interface FormData {
   rate: string;
   rateType: string;
   requirements: Requirements;
+  breeds: string[];
 }
 
 export default function PostJobPage() {
@@ -102,7 +104,8 @@ export default function PostJobPage() {
       experienceRequired: false,
       transportationRequired: false,
       homeTypePreference: '',
-    }
+    },
+    breeds: []
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -206,8 +209,14 @@ export default function PostJobPage() {
         return;
       }
 
+      // Add the breed from dogDetails to the breeds array if it's not already included
+      const breeds = formData.breeds.includes(formData.dogDetails.breed) 
+        ? formData.breeds 
+        : [...formData.breeds, formData.dogDetails.breed].filter(Boolean);
+
       await addDoc(collection(db, 'jobs'), {
         ...formData,
+        breeds,
         location: {
           ...formData.location,
           lat: coordinates.lat,
@@ -221,34 +230,10 @@ export default function PostJobPage() {
         updatedAt: new Date().toISOString()
       });
 
-      // Reset form
-      setFormData({
-        serviceType: 'daycare',
-        startDate: '',
-        endDate: '',
-        recurring: false,
-        description: '',
-        location: {
-          address: '',
-          lat: 0,
-          lng: 0,
-        },
-        dogDetails: {
-          breed: '',
-          size: '',
-          specialNeeds: '',
-        },
-        rate: '',
-        rateType: 'per_hour',
-        requirements: {
-          experienceRequired: false,
-          transportationRequired: false,
-          homeTypePreference: '',
-        }
-      });
+      router.push('/profile');
     } catch (err) {
-      setError('Failed to create job posting');
-      console.error('Error creating job:', err);
+      console.error('Error creating job post:', err);
+      setError('Failed to create job post. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -607,6 +592,18 @@ export default function PostJobPage() {
                   rows={4}
                   className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-coral"
                   placeholder="Any additional details or requirements..."
+                />
+              </div>
+
+              {/* Additional Breeds */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Additional Breeds (Optional)
+                </label>
+                <BreedFilter
+                  selectedBreeds={formData.breeds}
+                  onBreedsChange={(breeds) => setFormData(prev => ({ ...prev, breeds }))}
+                  className="mt-1"
                 />
               </div>
 

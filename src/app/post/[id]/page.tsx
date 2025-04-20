@@ -1,6 +1,6 @@
 import JobPostContent from './JobPostContent';
 
-export default async function Page({ params }: { params: { id: string } }) {
+export default function Page({ params }: { params: { id: string } }) {
   return <JobPostContent postId={params.id} />;
 }
 

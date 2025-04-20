@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { FaMapMarkerAlt, FaDog, FaStar, FaStarHalf } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaDog, FaStar, FaStarHalf, FaUser } from 'react-icons/fa';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/lib/auth';
 import ReviewForm from '@/components/ReviewForm';
+import Image from 'next/image';
 
 // Dynamically import MapComponent to avoid SSR issues
 const MapComponent = dynamic(() => import('@/components/Map'), {
@@ -222,46 +223,54 @@ export default function ProviderDetailsPage() {
         ← Back to search
       </button>
 
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex items-start gap-6 mb-6">
-          <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center gap-6 mb-6">
+          <div className="relative w-24 h-24 flex-shrink-0">
             {provider.photoUrl ? (
-              <img
+              <Image
                 src={provider.photoUrl}
                 alt={provider.name}
-                className="w-full h-full rounded-full object-cover"
+                fill
+                className="rounded-full object-cover"
+                unoptimized
               />
             ) : (
-              <FaDog className="text-4xl text-primary-navy" />
+              <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center">
+                <FaUser className="text-gray-400 text-3xl" />
+              </div>
             )}
           </div>
-          <div className="flex-grow">
-            <h1 className="text-2xl font-bold text-primary-navy mb-2">
-              {provider.name}
-            </h1>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="flex">
-                {renderStars(averageRating)}
-              </div>
-              <span className="text-sm text-gray-600">
-                ({reviews.length} {reviews.length === 1 ? 'review' : 'reviews'})
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {activeServices.map((service) => (
-                <span
-                  key={service}
-                  className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary-navy/10 text-primary-navy"
-                >
-                  {getServiceEmoji(service)} {service.charAt(0).toUpperCase() + service.slice(1)}
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{provider.name}</h1>
+            <p className="text-gray-600 mt-1">Service Provider</p>
+            {provider.rating && (
+              <div className="flex items-center mt-2">
+                <div className="flex text-yellow-400">
+                  {[...Array(5)].map((_, i) => (
+                    <FaStar key={i} className={i < provider.rating ? 'text-yellow-400' : 'text-gray-300'} />
+                  ))}
+                </div>
+                <span className="ml-2 text-sm text-gray-600">
+                  ({provider.totalReviews} {provider.totalReviews === 1 ? 'review' : 'reviews'})
                 </span>
-              ))}
-            </div>
-            <p className="text-xl font-semibold text-primary-coral">
-              ${provider.rate}/hour
-            </p>
+              </div>
+            )}
           </div>
         </div>
+
+        <div className="flex flex-wrap gap-2 mb-4">
+          {activeServices.map((service) => (
+            <span
+              key={service}
+              className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary-navy/10 text-primary-navy"
+            >
+              {getServiceEmoji(service)} {service.charAt(0).toUpperCase() + service.slice(1)}
+            </span>
+          ))}
+        </div>
+        <p className="text-xl font-semibold text-primary-coral">
+          ${provider.rate}/hour
+        </p>
 
         {provider.bio && (
           <div className="mb-6">

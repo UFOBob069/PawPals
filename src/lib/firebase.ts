@@ -1,6 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -23,5 +24,8 @@ if (typeof window !== 'undefined') {
       console.error('Error setting auth persistence:', error);
     });
 }
+
+// Initialize Firebase Storage
+export const storage = getStorage(app);
 
 export { app, db, auth }; 

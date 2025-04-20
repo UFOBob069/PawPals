@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { FaMapMarkerAlt, FaCalendar, FaClock, FaDollarSign } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaCalendar, FaClock, FaDollarSign, FaUser } from 'react-icons/fa';
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 
 // Dynamically import MapComponent to avoid SSR issues
 const MapComponent = dynamic(() => import('@/components/Map'), {
@@ -32,6 +33,9 @@ interface ServiceDetails {
   rateType: string;
   createdAt: string;
   status: string;
+  photoUrl?: string;
+  startDate: string;
+  endDate: string;
 }
 
 const getServiceEmoji = (serviceType: string) => {
@@ -53,6 +57,7 @@ export default function ServiceDetailsPage() {
   const [service, setService] = useState<ServiceDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [ownerPhoto, setOwnerPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchServiceDetails = async () => {
@@ -71,6 +76,15 @@ export default function ServiceDetailsPage() {
           id: serviceDoc.id,
           ...data
         });
+
+        // Fetch owner's profile photo
+        if (data.ownerUid) {
+          const ownerDoc = await getDoc(doc(db, 'users', data.ownerUid));
+          if (ownerDoc.exists()) {
+            const ownerData = ownerDoc.data();
+            setOwnerPhoto(ownerData.photoUrl || null);
+          }
+        }
       } catch (err) {
         console.error('Error fetching service details:', err);
         setError('Failed to load service details');
@@ -120,12 +134,29 @@ export default function ServiceDetailsPage() {
 
       <div className="bg-white rounded-lg shadow-sm p-6">
         <div className="flex justify-between items-start mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-primary-navy flex items-center gap-2 mb-2">
-              {getServiceEmoji(service.serviceType)}
-              {service.serviceType.charAt(0).toUpperCase() + service.serviceType.slice(1)}
-            </h1>
-            <p className="text-lg text-gray-600">by {service.ownerName}</p>
+          <div className="flex items-center gap-4">
+            <div className="relative w-16 h-16 flex-shrink-0">
+              {ownerPhoto ? (
+                <Image
+                  src={ownerPhoto}
+                  alt={service.ownerName}
+                  fill
+                  className="rounded-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center">
+                  <FaUser className="text-gray-400 text-2xl" />
+                </div>
+              )}
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-primary-navy flex items-center gap-2 mb-2">
+                {getServiceEmoji(service.serviceType)}
+                {service.serviceType.charAt(0).toUpperCase() + service.serviceType.slice(1)}
+              </h1>
+              <p className="text-lg text-gray-600">by {service.ownerName}</p>
+            </div>
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold text-primary-coral">
@@ -142,6 +173,33 @@ export default function ServiceDetailsPage() {
           </div>
         )}
 
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-primary-navy mb-2">Service Dates</h2>
+          <div className="flex items-center gap-3 text-gray-600">
+            <FaCalendar className="flex-shrink-0 text-primary-coral text-lg" />
+            <div>
+              <p className="mb-1">
+                <span className="font-medium">From:</span> {new Date(service.startDate).toLocaleDateString('en-US', { 
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: 'numeric'
+                })}
+              </p>
+              <p>
+                <span className="font-medium">To:</span> {new Date(service.endDate).toLocaleDateString('en-US', { 
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: 'numeric'
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+
         {service.location && (
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-primary-navy mb-2">Location</h2>
@@ -152,8 +210,18 @@ export default function ServiceDetailsPage() {
           </div>
         )}
 
-        {service.location?.lat && service.location?.lng && (
-          <div className="h-[300px] w-full rounded-lg overflow-hidden mb-6">
+        <div className="mb-6">
+          <a
+            href={`/chat/${service.ownerUid}`}
+            className="block w-full text-center bg-primary-coral text-white py-3 px-4 rounded-lg 
+                     hover:bg-primary-coral/90 transition-colors duration-200 font-medium"
+          >
+            Contact Service Provider
+          </a>
+        </div>
+
+        {service.location && (
+          <div className="h-[300px] w-full rounded-lg overflow-hidden">
             <MapComponent
               markers={[{
                 id: service.id,
@@ -174,16 +242,6 @@ export default function ServiceDetailsPage() {
             />
           </div>
         )}
-
-        <div className="mt-6">
-          <a
-            href={`/chat/${service.ownerUid}`}
-            className="block w-full text-center bg-primary-coral text-white py-3 px-4 rounded-lg 
-                     hover:bg-primary-coral/90 transition-colors duration-200 font-medium"
-          >
-            Contact Service Provider
-          </a>
-        </div>
       </div>
     </div>
   );

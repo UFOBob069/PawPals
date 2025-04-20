@@ -73,7 +73,7 @@ export default function InboxPage() {
     });
 
     return () => unsubscribe();
-  }, [user, router]);
+  }, [user, router, selectedSubject]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();

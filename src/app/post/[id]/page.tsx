@@ -1,10 +1,14 @@
 import JobPostContent from './JobPostContent';
 
-export default function Page({ params }: { params: { id: string } }) {
+type Props = {
+  params: { id: string };
+};
+
+export default async function Page({ params }: Props) {
   return <JobPostContent postId={params.id} />;
 }
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
+export async function generateMetadata({ params }: Props) {
   return {
     title: `Post ${params.id}`,
   };

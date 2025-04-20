@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { useAuth } from '@/lib/auth';
-import { FaPaw, FaHeart, FaCalendarAlt, FaShieldAlt, FaMapMarkerAlt, FaStar } from 'react-icons/fa';
+import { FaPaw, FaHeart, FaCalendarAlt, FaShieldAlt, FaMapMarkerAlt, FaStar, FaHandshake, FaSearch, FaComments, FaCalendarCheck } from 'react-icons/fa';
 import Image from 'next/image';
 
 const FEATURED_PHOTOS = [
@@ -57,6 +57,13 @@ const SERVICES = [
   },
 ];
 
+const rotationAngles = [
+  [-15, 10, -20, 15, -10, 20, -25, 30],
+  [25, -20, 15, -10, 20, -15, 10, -25],
+  [-10, 15, -20, 25, -15, 20, -25, 10],
+  [20, -15, 10, -25, 15, -20, 25, -10]
+];
+
 export default function Home() {
   const router = useRouter();
   const { user } = useAuth();
@@ -78,17 +85,17 @@ export default function Home() {
   return (
     <main className="flex flex-col min-h-screen">
       {/* Hero Section */}
-      <section className="relative w-full bg-primary-yellow overflow-hidden">
+      <section className="relative w-full bg-primary-yellow py-20 px-4 sm:px-6 lg:px-8">
         <div className="absolute inset-0">
-          {[...Array(6)].map((_, row) => (
+          {[...Array(4)].map((_, row) => (
             [...Array(8)].map((_, col) => (
               <FaPaw 
                 key={`${row}-${col}`} 
                 className="absolute text-black/[0.15] text-2xl transform"
                 style={{
-                  left: `${(col * 12.5) + (row % 2 ? 6.25 : 0)}%`,
-                  top: `${(row * 20) + (col % 2 ? 10 : 0)}%`,
-                  transform: `rotate(${Math.floor(Math.random() * 60) - 30}deg) scale(1.2)`,
+                  left: `${(col * 12.5)}%`,
+                  top: `${(row * 25) + (col % 2 ? 12.5 : 0)}%`,
+                  transform: `rotate(${rotationAngles[row][col]}deg) scale(1.2)`,
                 }}
               />
             ))
@@ -139,15 +146,47 @@ export default function Home() {
               <span>5-Star Rated</span>
             </div>
             <div className="flex items-center gap-2">
-              <FaHeart className="text-xl" />
-              <span>Pet Insurance</span>
+              <FaHandshake className="text-xl" />
+              <span>Direct Connections</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="w-full py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-primary-navy text-center mb-12">
+            How <span className="text-primary-coral">PawPals</span> Works
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-primary-yellow rounded-full flex items-center justify-center mx-auto mb-6">
+                <FaSearch className="text-2xl text-primary-navy" />
+              </div>
+              <h3 className="text-xl font-semibold text-primary-navy mb-4">1. Find Care</h3>
+              <p className="text-gray-600">Search for trusted local pet care providers in your area</p>
+            </div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-primary-yellow rounded-full flex items-center justify-center mx-auto mb-6">
+                <FaComments className="text-2xl text-primary-navy" />
+              </div>
+              <h3 className="text-xl font-semibold text-primary-navy mb-4">2. Connect</h3>
+              <p className="text-gray-600">Message providers directly to discuss your pet's needs</p>
+            </div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-primary-yellow rounded-full flex items-center justify-center mx-auto mb-6">
+                <FaCalendarCheck className="text-2xl text-primary-navy" />
+              </div>
+              <h3 className="text-xl font-semibold text-primary-navy mb-4">3. Book & Pay</h3>
+              <p className="text-gray-600">Schedule services and pay providers directly - no platform fees</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Services Section */}
-      <section className="w-full py-20 bg-white">
+      <section className="w-full py-20 bg-neutral-lightest">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-bold text-primary-navy text-center mb-12">
             Services Tailored to Your <span className="text-primary-coral">Needs</span>
@@ -165,29 +204,72 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Photo Gallery */}
-      <section className="w-full py-20 bg-gray-50">
+      {/* Platform Fee Comparison */}
+      <section className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-primary-navy text-center mb-12">
-            Happy <span className="text-primary-coral">Paw Pals</span>
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {FEATURED_PHOTOS.map((photo, index) => (
-              <div key={index} className="relative aspect-square rounded-lg overflow-hidden hover:opacity-90 transition">
-                <Image
-                  src={photo.url}
-                  alt={photo.alt}
-                  fill
-                  className="object-cover"
-                />
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-4xl font-bold text-primary-navy mb-4">
+              Keep More of What You Earn
+            </h2>
+            <p className="text-xl text-gray-600 mb-12">
+              Other platforms take up to 30% of every booking. With PawPals, you keep 100% of your earnings.
+            </p>
+
+            <div className="grid md:grid-cols-2 gap-8">
+              {/* Other Platforms */}
+              <div className="bg-white p-8 rounded-xl shadow-lg">
+                <h3 className="text-2xl font-semibold text-gray-900 mb-2">
+                  Other Platforms
+                </h3>
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <span className="text-6xl font-bold text-red-500">-30%</span>
+                </div>
+                <p className="text-gray-600">
+                  For a $100 booking, you only keep $70
+                </p>
+                <div className="mt-4 p-4 bg-red-50 rounded-lg">
+                  <p className="text-red-600 font-medium">
+                    Platform fees eat into your earnings
+                  </p>
+                </div>
               </div>
-            ))}
+
+              {/* PawPals */}
+              <div className="bg-white p-8 rounded-xl shadow-lg border-2 border-primary-coral relative">
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-primary-coral text-white px-4 py-1 rounded-full text-sm font-medium">
+                  BEST CHOICE
+                </div>
+                <h3 className="text-2xl font-semibold text-gray-900 mb-2">
+                  PawPals
+                </h3>
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <span className="text-6xl font-bold text-green-500">100%</span>
+                </div>
+                <p className="text-gray-600">
+                  For a $100 booking, you keep all $100
+                </p>
+                <div className="mt-4 p-4 bg-green-50 rounded-lg">
+                  <p className="text-green-600 font-medium">
+                    No hidden fees or commissions
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-12">
+              <Link 
+                href="/signup"
+                className="inline-flex items-center px-8 py-3 border border-transparent text-lg font-medium rounded-md text-white bg-primary-coral hover:bg-primary-coral/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-coral"
+              >
+                Start Earning More Today
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Testimonials */}
-      <section className="w-full py-20 bg-white">
+      <section className="w-full py-20 bg-neutral-lightest">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-bold text-primary-navy text-center mb-12">
             What Our Community <span className="text-primary-coral">Says</span>
@@ -221,8 +303,29 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Photo Gallery */}
+      <section className="w-full py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-primary-navy text-center mb-12">
+            Happy <span className="text-primary-coral">Paw Pals</span>
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {FEATURED_PHOTOS.map((photo, index) => (
+              <div key={index} className="relative aspect-square rounded-lg overflow-hidden hover:opacity-90 transition">
+                <Image
+                  src={photo.url}
+                  alt={photo.alt}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
-      <section className="w-full py-16 bg-gray-50">
+      <section className="w-full py-16 bg-neutral-lightest">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center p-6">
@@ -236,9 +339,9 @@ export default function Home() {
               <p className="text-gray-600">Book recurring services or one-time care based on your needs</p>
             </div>
             <div className="text-center p-6">
-              <FaHeart className="text-4xl text-primary-coral mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-primary-navy mb-4">Peace of Mind</h3>
-              <p className="text-gray-600">Every booking includes insurance coverage for your peace of mind</p>
+              <FaHandshake className="text-4xl text-primary-coral mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-primary-navy mb-4">Direct Connection</h3>
+              <p className="text-gray-600">Connect and coordinate directly with your chosen provider</p>
             </div>
           </div>
         </div>

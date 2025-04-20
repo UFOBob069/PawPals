@@ -300,10 +300,20 @@ export default function ProviderDetailsPage() {
             <h2 className="text-lg font-semibold text-primary-navy mb-2">Location</h2>
             <div className="flex items-start gap-2 text-gray-600">
               <FaMapMarkerAlt className="mt-1 flex-shrink-0" />
-              <p>{provider.location.address}</p>
+              <p>Location will be shared after connecting</p>
             </div>
           </div>
         )}
+
+        <div className="mb-6">
+          <a
+            href={`/chat/${provider.id}`}
+            className="block w-full text-center bg-primary-navy text-white py-3 px-4 rounded-lg 
+                     hover:bg-primary-navy/90 transition-colors duration-200 font-medium"
+          >
+            Contact Provider
+          </a>
+        </div>
 
         {provider.location?.lat && provider.location?.lng && (
           <div className="h-[300px] w-full rounded-lg overflow-hidden mb-6">

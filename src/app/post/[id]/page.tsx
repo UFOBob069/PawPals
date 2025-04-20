@@ -28,10 +28,10 @@ interface PageProps {
   params: {
     id: string;
   };
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-export default function JobPostPage({ params, searchParams }: PageProps) {
+export default async function JobPostPage({ params, searchParams }: PageProps) {
   const { user } = useAuth();
   const [job, setJob] = useState<JobPost | null>(null);
   const [loading, setLoading] = useState(true);

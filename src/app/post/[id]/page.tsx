@@ -1,14 +1,10 @@
 import JobPostContent from './JobPostContent';
 
-interface PageProps {
-  params: { id: string };
-}
-
-export default async function Page({ params }: PageProps) {
+export default async function Page({ params }: { params: { id: string } }) {
   return <JobPostContent postId={params.id} />;
 }
 
-export async function generateMetadata({ params }: PageProps) {
+export async function generateMetadata({ params }: { params: { id: string } }) {
   return {
     title: `Post ${params.id}`,
   };

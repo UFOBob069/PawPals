@@ -83,7 +83,7 @@ export default function PostJobPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [formData, setFormData] = useState<FormData>({
-    serviceType: 'daycare',
+    serviceType: 'walk',
     startDate: '',
     endDate: '',
     recurring: false,
@@ -225,6 +225,7 @@ export default function PostJobPage() {
         ownerUid: user.uid,
         ownerName: user.displayName || 'Anonymous',
         ownerEmail: user.email,
+        photoUrl: user.photoURL,
         status: 'open',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -321,19 +322,22 @@ export default function PostJobPage() {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Service Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="mb-6">
+                <label className="block text-gray-700 text-sm font-bold mb-2">
                   Service Type
                 </label>
                 <select
                   name="serviceType"
                   value={formData.serviceType}
                   onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-coral"
+                  className="w-full p-2 border border-gray-300 rounded-lg"
                 >
                   <option value="walk">Dog Walking</option>
                   <option value="daycare">Daycare</option>
                   <option value="boarding">Boarding</option>
+                  <option value="dropIn">Drop-in Visit</option>
+                  <option value="training">Training</option>
+                  <option value="houseSitting">House Sitting</option>
                 </select>
               </div>
 

@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { FaList, FaMap, FaMapMarkerAlt, FaFilter, FaChevronDown, FaChevronUp, FaSortAmountDown, FaSortAmountUp } from 'react-icons/fa';
+import { FaList, FaMap, FaMapMarkerAlt, FaFilter, FaChevronDown, FaChevronUp, FaSortAmountDown, FaSortAmountUp, FaUser, FaCalendar, FaStar } from 'react-icons/fa';
 import BreedFilter from '@/components/BreedFilter';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { collection, query, where, getDocs, CollectionReference, DocumentData, Query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import Image from 'next/image';
 
 // Types
 type ResultType = 'all' | 'jobs' | 'providers';
@@ -33,6 +34,11 @@ interface SearchResult {
     boarding: boolean;
   };
   breeds?: string[];
+  photoUrl?: string;
+  startDate?: string;
+  endDate?: string;
+  rating?: number;
+  totalReviews?: number;
 }
 
 type SortOrder = 'none' | 'highToLow' | 'lowToHigh';
@@ -55,6 +61,12 @@ const getServiceEmoji = (serviceType: string) => {
       return '🏠';
     case 'boarding':
       return '🛏️';
+    case 'dropIn':
+      return '🏃';
+    case 'training':
+      return '🎓';
+    case 'houseSitting':
+      return '🏡';
     default:
       return '🐕';
   }
@@ -152,9 +164,28 @@ export default function SearchContent() {
       const jobsSnapshot = await getDocs(jobsQuery);
       const jobResults: SearchResult[] = [];
 
+      // Get all unique owner IDs
+      const ownerIds = Array.from(new Set(
+        jobsSnapshot.docs
+          .map(doc => doc.data().ownerUid)
+          .filter(Boolean)
+      ));
+
+      // Fetch owner profiles in batches of 10
+      const ownerProfiles = new Map<string, { photoUrl?: string }>();
+      for (let i = 0; i < ownerIds.length; i += 10) {
+        const batch = ownerIds.slice(i, i + 10);
+        const ownersQuery = query(collection(db, 'users'), where('__name__', 'in', batch));
+        const ownersSnapshot = await getDocs(ownersQuery);
+        ownersSnapshot.forEach(doc => {
+          ownerProfiles.set(doc.id, doc.data());
+        });
+      }
+
       jobsSnapshot.forEach((doc) => {
         const data = doc.data();
         if (data.location?.lat && data.location?.lng) {
+          const ownerProfile = ownerProfiles.get(data.ownerUid);
           jobResults.push({
             id: doc.id,
             ownerName: data.ownerName,
@@ -166,7 +197,10 @@ export default function SearchContent() {
             rateType: data.rateType,
             createdAt: data.createdAt,
             breeds: data.breeds || [],
-            isProvider: false
+            isProvider: false,
+            photoUrl: ownerProfile?.photoUrl,
+            startDate: data.startDate,
+            endDate: data.endDate
           });
         }
       });
@@ -182,12 +216,23 @@ export default function SearchContent() {
       const providersSnapshot = await getDocs(providersQuery);
       const providerResults: SearchResult[] = [];
 
-      providersSnapshot.forEach((doc) => {
+      // First, collect all provider data and create review fetch promises
+      const providerPromises = providersSnapshot.docs.map(async (doc) => {
         const data = doc.data();
         if (data.location?.lat && data.location?.lng) {
           // Only include providers that offer the selected service type
           if (!searchParams?.serviceType || data.services?.[searchParams.serviceType]) {
-            providerResults.push({
+            const reviewsQuery = query(
+              collection(db, 'reviews'),
+              where('providerId', '==', doc.id)
+            );
+            const reviewsSnapshot = await getDocs(reviewsQuery);
+            const reviews = reviewsSnapshot.docs.map(doc => doc.data());
+            const rating = reviews.length > 0 
+              ? reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length 
+              : 0;
+
+            return {
               id: doc.id,
               ownerName: data.name,
               ownerUid: doc.id,
@@ -202,11 +247,21 @@ export default function SearchContent() {
               createdAt: data.createdAt || new Date().toISOString(),
               breeds: data.acceptedBreeds || [],
               isProvider: true,
-              services: data.services
-            });
+              services: data.services,
+              photoUrl: data.photoUrl,
+              rating,
+              totalReviews: reviews.length
+            };
           }
         }
+        return null;
       });
+
+      // Wait for all provider data to be processed
+      const resolvedProviders = await Promise.all(providerPromises);
+      
+      // Filter out null values and add to results
+      providerResults.push(...resolvedProviders.filter((provider): provider is SearchResult => provider !== null));
 
       // Filter results based on type
       let combinedResults = 
@@ -295,12 +350,15 @@ export default function SearchContent() {
               <select
                 value={filters.serviceType}
                 onChange={(e) => setFilters(prev => ({ ...prev, serviceType: e.target.value }))}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-coral focus:border-transparent"
+                className="w-full p-2 border border-gray-300 rounded-lg"
               >
                 <option value="">All Services</option>
                 <option value="walk">Dog Walking</option>
                 <option value="daycare">Daycare</option>
                 <option value="boarding">Boarding</option>
+                <option value="dropIn">Drop-in Visit</option>
+                <option value="training">Training</option>
+                <option value="houseSitting">House Sitting</option>
               </select>
             </div>
 
@@ -446,16 +504,51 @@ export default function SearchContent() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {getSortedResults(searchResults).map((result) => (
-              <div key={result.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div key={result.id} className="bg-white rounded-lg shadow-md overflow-hidden">
                 <div className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">
-                        {getServiceEmoji(result.serviceType)} {result.ownerName}
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {result.isProvider ? 'Service Provider' : 'Job Post'}
-                      </p>
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                      <div className="relative w-12 h-12 flex-shrink-0">
+                        {result.photoUrl ? (
+                          <Image
+                            src={result.photoUrl}
+                            alt={result.ownerName}
+                            fill
+                            className="rounded-full object-cover"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center">
+                            <FaUser className="text-gray-400 text-xl" />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {getServiceEmoji(result.serviceType)} {result.ownerName}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {result.isProvider ? 'Service Provider' : `Job Post - ${result.serviceType.charAt(0).toUpperCase() + result.serviceType.slice(1).replace(/([A-Z])/g, ' $1')}`}
+                        </p>
+                        {result.isProvider && (
+                          <div className="flex items-center gap-1 mt-1">
+                            <div className="flex">
+                              {[...Array(5)].map((_, i) => (
+                                <FaStar
+                                  key={i}
+                                  className={i < Math.round(result.rating || 0) ? 'text-yellow-400' : 'text-gray-300'}
+                                  size={14}
+                                />
+                              ))}
+                            </div>
+                            {result.totalReviews > 0 && (
+                              <span className="text-sm text-gray-500">
+                                ({result.totalReviews})
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-medium text-primary-coral">
@@ -463,8 +556,16 @@ export default function SearchContent() {
                       </p>
                     </div>
                   </div>
-                  <p className="mt-4 text-gray-600 line-clamp-3">{result.description}</p>
-                  <div className="mt-6">
+                  {!result.isProvider && result.startDate && result.endDate && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
+                      <FaCalendar className="flex-shrink-0 text-primary-coral" />
+                      <div>
+                        <p>From {new Date(result.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} to {new Date(result.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                      </div>
+                    </div>
+                  )}
+                  <p className="mt-2 text-gray-600 line-clamp-3">{result.description}</p>
+                  <div className="mt-4">
                     <a
                       href={result.isProvider ? `/providers/${result.id}` : `/services/${result.id}`}
                       className="block w-full text-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-coral hover:bg-primary-coral/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-coral"

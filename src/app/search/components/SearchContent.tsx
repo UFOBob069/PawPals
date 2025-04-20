@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { FaList, FaMap, FaMapMarkerAlt, FaFilter, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaList, FaMap, FaMapMarkerAlt, FaFilter, FaChevronDown, FaChevronUp, FaSortAmountDown, FaSortAmountUp } from 'react-icons/fa';
 import BreedFilter from '@/components/BreedFilter';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { collection, query, where, getDocs, CollectionReference, DocumentData, Query } from 'firebase/firestore';
@@ -34,6 +34,8 @@ interface SearchResult {
   };
   breeds?: string[];
 }
+
+type SortOrder = 'none' | 'highToLow' | 'lowToHigh';
 
 // Dynamically import the Map component
 const MapComponent = dynamic(() => import('@/components/Map'), {
@@ -80,6 +82,7 @@ export default function SearchContent() {
     return (type === 'jobs' || type === 'providers' || type === 'all') ? type : 'all';
   });
   const [isFiltersVisible, setIsFiltersVisible] = useState(false);
+  const [sortOrder, setSortOrder] = useState<SortOrder>('none');
 
   // Initial load of services based on URL query
   useEffect(() => {
@@ -234,6 +237,22 @@ export default function SearchContent() {
     }
   };
 
+  // Add sorting function
+  const getSortedResults = (results: SearchResult[]) => {
+    if (sortOrder === 'none') return results;
+    
+    return [...results].sort((a, b) => {
+      const priceA = parseFloat(a.rate);
+      const priceB = parseFloat(b.rate);
+      
+      if (sortOrder === 'highToLow') {
+        return priceB - priceA;
+      } else {
+        return priceA - priceB;
+      }
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -334,32 +353,52 @@ export default function SearchContent() {
           </div>
         </div>
 
-        {/* View Toggle */}
+        {/* View Toggle and Sort */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold text-gray-900">
             {searchResults.length} Results
           </h2>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-2 rounded-lg ${
-                viewMode === 'list'
-                  ? 'bg-primary-coral text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              <FaList className="text-xl" />
-            </button>
-            <button
-              onClick={() => setViewMode('map')}
-              className={`p-2 rounded-lg ${
-                viewMode === 'map'
-                  ? 'bg-primary-coral text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              <FaMap className="text-xl" />
-            </button>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSortOrder(sortOrder === 'highToLow' ? 'lowToHigh' : 'highToLow')}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition"
+              >
+                {sortOrder === 'highToLow' ? (
+                  <>
+                    <FaSortAmountDown className="text-gray-500" />
+                    <span>Price: High to Low</span>
+                  </>
+                ) : (
+                  <>
+                    <FaSortAmountUp className="text-gray-500" />
+                    <span>Price: Low to High</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-lg ${
+                  viewMode === 'list'
+                    ? 'bg-primary-coral text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <FaList className="text-xl" />
+              </button>
+              <button
+                onClick={() => setViewMode('map')}
+                className={`p-2 rounded-lg ${
+                  viewMode === 'map'
+                    ? 'bg-primary-coral text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <FaMap className="text-xl" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -406,7 +445,7 @@ export default function SearchContent() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {searchResults.map((result) => (
+            {getSortedResults(searchResults).map((result) => (
               <div key={result.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
                 <div className="p-6">
                   <div className="flex items-start justify-between">
@@ -425,10 +464,6 @@ export default function SearchContent() {
                     </div>
                   </div>
                   <p className="mt-4 text-gray-600 line-clamp-3">{result.description}</p>
-                  <div className="mt-4 flex items-center text-sm text-gray-500">
-                    <FaMapMarkerAlt className="text-gray-400 mr-1" />
-                    {result.location.address || 'Location available'}
-                  </div>
                   <div className="mt-6">
                     <a
                       href={result.isProvider ? `/providers/${result.id}` : `/services/${result.id}`}

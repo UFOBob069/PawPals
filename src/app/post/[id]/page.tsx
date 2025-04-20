@@ -1,12 +1,12 @@
 import JobPostContent from './JobPostContent';
 
-interface PageProps {
-  params: {
-    id: string;
-  };
-  searchParams?: { [key: string]: string | string[] | undefined };
+type Props = {
+  params: { id: string };
+  searchParams: { [key: string]: string | string[] | undefined };
+};
+
+async function JobPostPage({ params, searchParams }: Props) {
+  return <JobPostContent postId={params.id} />;
 }
 
-export default function JobPostPage({ params }: PageProps) {
-  return <JobPostContent postId={params.id} />;
-} 
+export default JobPostPage; 

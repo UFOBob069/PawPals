@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { FaPaw, FaHeart, FaMapMarkerAlt } from 'react-icons/fa';
+import Link from 'next/link';
 
 export default function AboutPage() {
   return (
@@ -104,6 +105,24 @@ export default function AboutPage() {
                 <h3 className="text-xl font-semibold text-primary-navy mb-2">Community</h3>
                 <p className="text-gray-600">Building connections between pet lovers in Austin and beyond</p>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer with Terms */}
+      <section className="py-8 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <div className="flex justify-center space-x-4 text-sm text-gray-600">
+              <Link 
+                href="/terms" 
+                className="hover:text-primary-coral transition-colors duration-200"
+              >
+                Terms of Service
+              </Link>
+              <span>•</span>
+              <p>© {new Date().getFullYear()} PawPals. All rights reserved.</p>
             </div>
           </div>
         </div>

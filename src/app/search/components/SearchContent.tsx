@@ -28,34 +28,40 @@ interface Service {
   photoUrl?: string;
   rating?: number;
   totalReviews?: number;
+  reviews?: Array<{
+    id: string;
+    rating: number;
+    [key: string]: any;
+  }>;
 }
 
-interface SearchResult {
-  id: string;
-  ownerName: string;
-  ownerUid: string;
+interface SearchParams {
+  serviceType?: string;
+  distance?: string;
+  lat?: string;
+  lng?: string;
+  resultType?: ResultType;
+  sortOrder?: SortOrder;
+}
+
+interface Filters {
   serviceType: string;
-  description: string;
-  location: {
-    lat: number;
-    lng: number;
-    address?: string;
-  };
-  rate: string;
-  rateType: string;
-  createdAt: string;
+  distance: string;
+}
+
+interface SearchResult extends Service {
+  distance?: number;
+  ownerName?: string;
+  ownerUid?: string;
+  serviceType?: string;
+  description?: string;
+  rate?: string;
+  rateType?: string;
+  createdAt?: string;
   isProvider?: boolean;
-  services?: {
-    walk: boolean;
-    daycare: boolean;
-    boarding: boolean;
-  };
   breeds?: string[];
-  photoUrl?: string;
   startDate?: string;
   endDate?: string;
-  rating?: number;
-  totalReviews?: number;
 }
 
 type SortOrder = 'none' | 'highToLow' | 'lowToHigh';
@@ -173,50 +179,51 @@ export default function SearchContent() {
         const serviceData = doc.data();
         
         // Fetch reviews for this provider
-        const reviewsQuery = query(
-          collection(db, 'reviews'),
-          where('providerId', '==', doc.id)
-        );
+        const reviewsQuery = query(collection(db, 'users', doc.id, 'reviews'));
         const reviewsSnapshot = await getDocs(reviewsQuery);
         const reviews = reviewsSnapshot.docs.map(reviewDoc => ({
           id: reviewDoc.id,
           ...reviewDoc.data()
         })) as Array<{ id: string; rating: number; [key: string]: any }>;
         
-        // Calculate average rating
-        const totalRating = reviews.reduce((sum, review) => sum + (review.rating || 0), 0);
-        const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
-        
-        return {
+        const searchResult: SearchResult = {
           id: doc.id,
-          ...serviceData,
-          rating: averageRating,
+          name: serviceData.name || '',
+          bio: serviceData.bio || '',
+          services: serviceData.services,
+          acceptedBreeds: serviceData.acceptedBreeds || [],
+          location: serviceData.location,
+          photoUrl: serviceData.photoUrl,
+          rating: reviews.length > 0 ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0,
           totalReviews: reviews.length,
-          reviews
+          reviews: reviews,
+          isProvider: true
         };
-      })) as Service[];
+        return searchResult;
+      }));
 
       // Query for job posts
       const jobsQuery = query(collection(db, 'jobs'));
       const jobsSnapshot = await getDocs(jobsQuery);
-      const jobsData = await Promise.all(jobsSnapshot.docs.map(async jobDoc => {
-        const jobData = jobDoc.data();
-        
-        // Fetch the owner's profile to get their photo
-        if (jobData.ownerUid) {
-          const ownerDoc = await getDoc(doc(db, 'users', jobData.ownerUid));
-          const ownerData = ownerDoc.data();
-          return {
-            id: jobDoc.id,
-            ...jobData,
-            photoUrl: ownerData?.photoUrl
-          };
-        }
-        return {
-          id: jobDoc.id,
-          ...jobData
+      const jobsData = await Promise.all(jobsSnapshot.docs.map(async doc => {
+        const jobData = doc.data();
+        const searchResult: SearchResult = {
+          id: doc.id,
+          name: jobData.ownerName || '',
+          bio: jobData.description,
+          serviceType: jobData.serviceType || '',
+          location: jobData.location,
+          rate: jobData.rate || '',
+          rateType: jobData.rateType || '',
+          createdAt: jobData.createdAt || '',
+          breeds: jobData.breeds || [],
+          photoUrl: jobData.photoUrl,
+          ownerName: jobData.ownerName || '',
+          ownerUid: jobData.ownerUid || '',
+          isProvider: false
         };
-      })) as SearchResult[];
+        return searchResult;
+      }));
 
       // Filter services based on search criteria
       const filteredServices = servicesData.filter(service => {
@@ -280,31 +287,8 @@ export default function SearchContent() {
 
       // Combine and format results
       const searchResults: SearchResult[] = [
-        ...filteredServices.map(service => ({
-          id: service.id,
-          ownerName: service.name,
-          ownerUid: service.id,
-          serviceType: Object.entries(service.services || {})
-            .filter(([, enabled]) => enabled)
-            .map(([service]) => service)
-            .join(', '),
-          description: service.bio || '',
-          location: service.location || { lat: 0, lng: 0 },
-          rate: '25',
-          rateType: 'hour',
-          createdAt: new Date().toISOString(),
-          breeds: service.acceptedBreeds || [],
-          isProvider: true,
-          photoUrl: service.photoUrl,
-          rating: service.rating,
-          totalReviews: service.totalReviews,
-          reviews: service.reviews
-        })),
-        ...filteredJobs.map(job => ({
-          ...job,
-          isProvider: false,
-          photoUrl: job.photoUrl
-        }))
+        ...filteredServices,
+        ...filteredJobs
       ];
 
       // Filter based on result type
@@ -333,13 +317,35 @@ export default function SearchContent() {
     }
   }, [searchQuery, fetchServices]);
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const calculateDistance = (lat1OrResult: number | SearchResult, lon1?: number, lat2?: number, lon2?: number): number => {
+    let startLat: number, startLng: number, endLat: number, endLng: number;
+
+    if (typeof lat1OrResult === 'object') {
+      // Handle SearchResult object
+      if (!lat1OrResult.location?.lat || !lat1OrResult.location?.lng || !selectedLocation?.lat || !selectedLocation?.lng) {
+        return 0;
+      }
+      startLat = selectedLocation.lat;
+      startLng = selectedLocation.lng;
+      endLat = lat1OrResult.location.lat;
+      endLng = lat1OrResult.location.lng;
+    } else {
+      // Handle coordinate pairs
+      if (typeof lon1 !== 'number' || typeof lat2 !== 'number' || typeof lon2 !== 'number') {
+        return 0;
+      }
+      startLat = lat1OrResult;
+      startLng = lon1;
+      endLat = lat2;
+      endLng = lon2;
+    }
+
     const R = 6371; // Earth's radius in kilometers
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const dLat = (endLat - startLat) * Math.PI / 180;
+    const dLon = (endLng - startLng) * Math.PI / 180;
     const a = 
       Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.cos(startLat * Math.PI / 180) * Math.cos(endLat * Math.PI / 180) * 
       Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     const d = R * c;
@@ -391,6 +397,31 @@ export default function SearchContent() {
     }
     return params;
   }, []);
+
+  const handleFilterChange = (prev: Filters): Filters => {
+    return {
+      serviceType: prev.serviceType ?? '',
+      distance: prev.distance ?? '5'
+    };
+  };
+
+  const filterResults = (results: SearchResult[]): SearchResult[] => {
+    return results.filter(result => {
+      const matchesServiceType = !filters.serviceType || !result.serviceType || result.serviceType === filters.serviceType;
+      const matchesBreeds = !selectedBreeds.length || (result.breeds?.some(breed => selectedBreeds.includes(breed)) ?? false);
+      return matchesServiceType && matchesBreeds;
+    });
+  };
+
+  const sortResults = (results: SearchResult[]): SearchResult[] => {
+    if (!sortOrder || sortOrder === 'none') return results;
+
+    return [...results].sort((a, b) => {
+      const rateA = parseFloat(a.rate ?? '0');
+      const rateB = parseFloat(b.rate ?? '0');
+      return sortOrder === 'highToLow' ? rateB - rateA : rateA - rateB;
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">

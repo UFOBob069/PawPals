@@ -3,12 +3,23 @@
 import { useState } from 'react';
 import { BREED_CATEGORIES } from '@/lib/breedCategories';
 
-interface BreedFilterProps {
+export interface BreedFilterProps {
   selectedBreeds: string[];
   onChange: (breeds: string[]) => void;
+  /** wrapper classes */
+  className?: string;
+  /** classes to apply to a selected item */
+  selectedClassName?: string;
+  disabled?: boolean;
 }
 
-export default function BreedFilter({ selectedBreeds, onChange }: BreedFilterProps) {
+export default function BreedFilter({ 
+  selectedBreeds, 
+  onChange, 
+  className = '',
+  selectedClassName = 'bg-primary-coral text-white',
+  disabled = false 
+}: BreedFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleBreedSelect = (breed: string) => {
@@ -20,10 +31,13 @@ export default function BreedFilter({ selectedBreeds, onChange }: BreedFilterPro
   };
 
   return (
-    <div className="relative">
+    <div className={`relative ${className}`}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg ${
+          disabled ? 'bg-gray-100 cursor-not-allowed' : 'hover:border-primary-coral'
+        }`}
+        disabled={disabled}
       >
         <span className="text-gray-700">
           {selectedBreeds.length > 0 
@@ -40,7 +54,7 @@ export default function BreedFilter({ selectedBreeds, onChange }: BreedFilterPro
         </svg>
       </button>
 
-      {isOpen && (
+      {isOpen && !disabled && (
         <div className="absolute w-full mt-2 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto z-10">
           <div className="p-2">
             {/* Size Categories */}
@@ -53,7 +67,7 @@ export default function BreedFilter({ selectedBreeds, onChange }: BreedFilterPro
                     onClick={() => handleBreedSelect(size)}
                     className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
                       selectedBreeds.includes(size)
-                        ? 'bg-primary-coral text-white'
+                        ? selectedClassName
                         : 'hover:bg-gray-100'
                     }`}
                   >
@@ -73,7 +87,7 @@ export default function BreedFilter({ selectedBreeds, onChange }: BreedFilterPro
                     onClick={() => handleBreedSelect(breed)}
                     className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
                       selectedBreeds.includes(breed)
-                        ? 'bg-primary-coral text-white'
+                        ? selectedClassName
                         : 'hover:bg-gray-100'
                     }`}
                   >
@@ -93,7 +107,7 @@ export default function BreedFilter({ selectedBreeds, onChange }: BreedFilterPro
                     onClick={() => handleBreedSelect(breed)}
                     className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
                       selectedBreeds.includes(breed)
-                        ? 'bg-primary-coral text-white'
+                        ? selectedClassName
                         : 'hover:bg-gray-100'
                     }`}
                   >
@@ -113,7 +127,7 @@ export default function BreedFilter({ selectedBreeds, onChange }: BreedFilterPro
                     onClick={() => handleBreedSelect(breed)}
                     className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
                       selectedBreeds.includes(breed)
-                        ? 'bg-primary-coral text-white'
+                        ? selectedClassName
                         : 'hover:bg-gray-100'
                     }`}
                   >

@@ -43,6 +43,7 @@ interface UserProfile {
     host?: boolean;
   };
   services: {
+    [key: string]: boolean;
     walk: boolean;
     daycare: boolean;
     boarding: boolean;
@@ -59,6 +60,7 @@ interface UserProfile {
   rating?: number;
   totalReviews?: number;
   photoUrl?: string;
+  updatedAt?: string;
 }
 
 export default function ProfilePage() {
@@ -122,6 +124,7 @@ export default function ProfilePage() {
               lng: 0,
             },
             photoUrl: userData.photoUrl,
+            updatedAt: userData.updatedAt,
           });
         }
       } catch (err) {
@@ -217,31 +220,23 @@ export default function ProfilePage() {
     if (!user) return;
 
     try {
-      // Create an update object with only the fields we want to update
-      const updateData = {
-        name: profile.name || '',
-        services: {
-          walk: profile.services?.walk || false,
-          daycare: profile.services?.daycare || false,
-          boarding: profile.services?.boarding || false,
-          dropIn: profile.services?.dropIn || false,
-          training: profile.services?.training || false,
-          houseSitting: profile.services?.houseSitting || false,
-        },
-        acceptedBreeds: profile.acceptedBreeds || [],
+      const updateData: Partial<UserProfile> = {
+        name: profile.name,
+        bio: profile.bio,
+        role: profile.role,
+        services: profile.services,
+        acceptedBreeds: profile.acceptedBreeds,
+        location: profile.location,
         updatedAt: new Date().toISOString(),
       };
 
       // Only include photoUrl if it exists
       if (profile.photoUrl) {
-        updateData['photoUrl'] = profile.photoUrl;
+        updateData.photoUrl = profile.photoUrl;
       }
 
       await updateDoc(doc(db, 'users', user.uid), updateData);
-      
-      // Exit edit mode and show success message
       setIsEditing(false);
-      alert('Profile updated successfully!');
     } catch (err) {
       console.error('Error updating profile:', err);
       setError('Failed to update profile');
@@ -302,6 +297,7 @@ export default function ProfilePage() {
     try {
       setProfile(prev => ({ ...prev, photoUrl }));
       
+      if (!user) return;
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {
         photoUrl

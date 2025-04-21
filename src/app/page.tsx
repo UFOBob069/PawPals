@@ -279,7 +279,7 @@ export default function Home() {
               <div key={index} className="bg-white rounded-xl p-6 shadow-lg">
                 <div className="flex items-center gap-4 mb-4">
                   <div className="relative w-12 h-12 rounded-full overflow-hidden">
-                    <Image
+          <Image
                       src={testimonial.image}
                       alt={testimonial.name}
                       fill
@@ -312,7 +312,7 @@ export default function Home() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {FEATURED_PHOTOS.map((photo, index) => (
               <div key={index} className="relative aspect-square rounded-lg overflow-hidden hover:opacity-90 transition">
-                <Image
+          <Image
                   src={photo.url}
                   alt={photo.alt}
                   fill
@@ -384,7 +384,7 @@ export default function Home() {
               </>
             )}
           </div>
-        </div>
+    </div>
       </section>
     </main>
   );

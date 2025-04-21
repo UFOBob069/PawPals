@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { FaHome, FaSearch, FaPlus, FaInbox, FaUser, FaBars, FaPaw, FaSignOutAlt } from 'react-icons/fa';
 import { useState } from 'react';
+import Image from 'next/image';
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -77,10 +78,13 @@ export default function Navigation() {
                   }`}
                 >
                   {user.photoURL ? (
-                    <img
+                    <Image
                       src={user.photoURL}
                       alt={user.displayName || 'Profile'}
-                      className="w-8 h-8 rounded-full"
+                      width={32}
+                      height={32}
+                      className="rounded-full"
+                      unoptimized
                     />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-primary-mint text-white flex items-center justify-center">

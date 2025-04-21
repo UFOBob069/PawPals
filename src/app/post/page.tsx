@@ -606,7 +606,7 @@ export default function PostJobPage() {
                 </label>
                 <BreedFilter
                   selectedBreeds={formData.breeds}
-                  onBreedsChange={(breeds) => setFormData(prev => ({ ...prev, breeds }))}
+                  onChange={(breeds) => setFormData(prev => ({ ...prev, breeds }))}
                   className="mt-1"
                 />
               </div>

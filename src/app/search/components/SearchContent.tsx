@@ -1,17 +1,34 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { FaList, FaMap, FaMapMarkerAlt, FaFilter, FaChevronDown, FaChevronUp, FaSortAmountDown, FaSortAmountUp, FaUser, FaCalendar, FaStar } from 'react-icons/fa';
 import BreedFilter from '@/components/BreedFilter';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
-import { collection, query, where, getDocs, CollectionReference, DocumentData, Query } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Image from 'next/image';
 
 // Types
 type ResultType = 'all' | 'jobs' | 'providers';
+
+interface Service {
+  id: string;
+  name: string;
+  bio?: string;
+  services?: {
+    [key: string]: boolean;
+  };
+  acceptedBreeds?: string[];
+  location?: {
+    lat: number;
+    lng: number;
+  };
+  photoUrl?: string;
+  rating?: number;
+  totalReviews?: number;
+}
 
 interface SearchResult {
   id: string;
@@ -74,7 +91,7 @@ const getServiceEmoji = (serviceType: string) => {
 
 export default function SearchContent() {
   const searchParams = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedBreeds, setSelectedBreeds] = useState<string[]>([]);
   const [filters, setFilters] = useState({
     serviceType: '',
@@ -84,11 +101,8 @@ export default function SearchContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
-  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | undefined>(() => {
-    const lat = searchParams.get('lat');
-    const lng = searchParams.get('lng');
-    return lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : undefined;
-  });
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | undefined>(undefined);
+  const [isGettingLocation, setIsGettingLocation] = useState(true);
   const [resultType, setResultType] = useState<ResultType>(() => {
     const type = searchParams.get('type');
     return (type === 'jobs' || type === 'providers' || type === 'all') ? type : 'all';
@@ -96,27 +110,228 @@ export default function SearchContent() {
   const [isFiltersVisible, setIsFiltersVisible] = useState(false);
   const [sortOrder, setSortOrder] = useState<SortOrder>('none');
 
-  // Initial load of services based on URL query
-  useEffect(() => {
-    fetchServices({
-      query: searchParams.get('q') || '',
-      serviceType: filters.serviceType,
-      breeds: selectedBreeds,
-      location: selectedLocation,
-      distance: parseInt(filters.distance),
-    });
-  }, [searchParams]);
+  // Function to get current location
+  const getCurrentLocation = useCallback(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          try {
+            // Use Mapbox Geocoding API to get the address
+            const response = await fetch(
+              `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`
+            );
+            const data = await response.json();
+            
+            if (data.features && data.features.length > 0) {
+              const placeName = data.features[0].place_name;
+              setSearchQuery(placeName);
+              setSelectedLocation({ lat: latitude, lng: longitude });
+            }
+          } catch (error) {
+            console.error('Error getting address:', error);
+            setError('Could not get your location details');
+          } finally {
+            setIsGettingLocation(false);
+          }
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          setError('Could not get your location');
+          setIsGettingLocation(false);
+        }
+      );
+    } else {
+      setError('Geolocation is not supported by your browser');
+      setIsGettingLocation(false);
+    }
+  }, []);
 
-  // Effect to handle filter changes
+  // Get current location on component mount
   useEffect(() => {
-    fetchServices({
-      query: searchQuery,
-      serviceType: filters.serviceType,
-      breeds: selectedBreeds,
-      location: selectedLocation,
-      distance: parseInt(filters.distance),
-    });
-  }, [resultType, filters.serviceType, filters.distance, selectedBreeds, selectedLocation]);
+    // Only get current location if no location is provided in URL params
+    const lat = searchParams.get('lat');
+    const lng = searchParams.get('lng');
+    const address = searchParams.get('address');
+
+    if (lat && lng && address) {
+      setSelectedLocation({ lat: parseFloat(lat), lng: parseFloat(lng) });
+      setSearchQuery(address);
+      setIsGettingLocation(false);
+    } else {
+      getCurrentLocation();
+    }
+  }, [searchParams, getCurrentLocation]);
+
+  const fetchServices = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Query for service providers
+      const servicesQuery = query(collection(db, 'users'), where('role.host', '==', true));
+      const servicesSnapshot = await getDocs(servicesQuery);
+      const servicesData = await Promise.all(servicesSnapshot.docs.map(async doc => {
+        const serviceData = doc.data();
+        
+        // Fetch reviews for this provider
+        const reviewsQuery = query(
+          collection(db, 'reviews'),
+          where('providerId', '==', doc.id)
+        );
+        const reviewsSnapshot = await getDocs(reviewsQuery);
+        const reviews = reviewsSnapshot.docs.map(reviewDoc => ({
+          id: reviewDoc.id,
+          ...reviewDoc.data()
+        }));
+        
+        // Calculate average rating
+        const totalRating = reviews.reduce((sum, review) => sum + (review.rating || 0), 0);
+        const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+        
+        return {
+          id: doc.id,
+          ...serviceData,
+          rating: averageRating,
+          totalReviews: reviews.length,
+          reviews
+        };
+      })) as Service[];
+
+      // Query for job posts
+      const jobsQuery = query(collection(db, 'jobs'));
+      const jobsSnapshot = await getDocs(jobsQuery);
+      const jobsData = await Promise.all(jobsSnapshot.docs.map(async jobDoc => {
+        const jobData = jobDoc.data();
+        
+        // Fetch the owner's profile to get their photo
+        if (jobData.ownerUid) {
+          const ownerDoc = await getDoc(doc(db, 'users', jobData.ownerUid));
+          const ownerData = ownerDoc.data();
+          return {
+            id: jobDoc.id,
+            ...jobData,
+            photoUrl: ownerData?.photoUrl
+          };
+        }
+        return {
+          id: jobDoc.id,
+          ...jobData
+        };
+      })) as SearchResult[];
+
+      // Filter services based on search criteria
+      const filteredServices = servicesData.filter(service => {
+        // Service type filter
+        if (filters.serviceType && !service.services?.[filters.serviceType]) {
+          return false;
+        }
+
+        // Breed filter
+        if (selectedBreeds.length > 0) {
+          if (!service.acceptedBreeds || !service.acceptedBreeds.some(breed => selectedBreeds.includes(breed))) {
+            return false;
+          }
+        }
+
+        // Location filter
+        if (selectedLocation && service.location) {
+          const distance = calculateDistance(
+            selectedLocation.lat,
+            selectedLocation.lng,
+            service.location.lat,
+            service.location.lng
+          );
+          if (distance > (Number(filters.distance) || 10)) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      // Filter jobs based on search criteria
+      const filteredJobs = jobsData.filter(job => {
+        // Service type filter
+        if (filters.serviceType && job.serviceType !== filters.serviceType) {
+          return false;
+        }
+
+        // Breed filter
+        if (selectedBreeds.length > 0) {
+          if (!job.breeds || !job.breeds.some(breed => selectedBreeds.includes(breed))) {
+            return false;
+          }
+        }
+
+        // Location filter
+        if (selectedLocation && job.location) {
+          const distance = calculateDistance(
+            selectedLocation.lat,
+            selectedLocation.lng,
+            job.location.lat,
+            job.location.lng
+          );
+          if (distance > (Number(filters.distance) || 10)) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      // Combine and format results
+      const searchResults: SearchResult[] = [
+        ...filteredServices.map(service => ({
+          id: service.id,
+          ownerName: service.name,
+          ownerUid: service.id,
+          serviceType: Object.entries(service.services || {})
+            .filter(([, enabled]) => enabled)
+            .map(([service]) => service)
+            .join(', '),
+          description: service.bio || '',
+          location: service.location || { lat: 0, lng: 0 },
+          rate: '25',
+          rateType: 'hour',
+          createdAt: new Date().toISOString(),
+          breeds: service.acceptedBreeds || [],
+          isProvider: true,
+          photoUrl: service.photoUrl,
+          rating: service.rating,
+          totalReviews: service.totalReviews,
+          reviews: service.reviews
+        })),
+        ...filteredJobs.map(job => ({
+          ...job,
+          isProvider: false,
+          photoUrl: job.photoUrl
+        }))
+      ];
+
+      // Filter based on result type
+      const finalResults = resultType === 'all' 
+        ? searchResults 
+        : searchResults.filter(result => result.isProvider === (resultType === 'providers'));
+
+      setSearchResults(finalResults);
+    } catch (error) {
+      console.error('Error fetching services:', error);
+      setError('Failed to load services');
+    } finally {
+      setLoading(false);
+    }
+  }, [filters.serviceType, filters.distance, selectedBreeds, selectedLocation, resultType]);
+
+  useEffect(() => {
+    if (selectedLocation) {
+      fetchServices();
+    }
+  }, [selectedLocation, fetchServices]);
+
+  useEffect(() => {
+    if (searchQuery) {
+      fetchServices();
+    }
+  }, [searchQuery, fetchServices]);
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371; // Earth's radius in kilometers
@@ -137,159 +352,6 @@ export default function SearchContent() {
     if (distance <= 10) return 11;
     if (distance <= 25) return 10;
     return 9;
-  };
-
-  const fetchServices = async (searchParams?: {
-    query?: string;
-    serviceType?: string;
-    breeds?: string[];
-    location?: { lat: number; lng: number } | undefined;
-    distance?: number;
-  }) => {
-    setLoading(true);
-    setError('');
-    try {
-      // Fetch job posts
-      const jobsCollection = collection(db, 'jobs') as CollectionReference<DocumentData>;
-      let jobsQuery: Query<DocumentData> = jobsCollection;
-      
-      if (searchParams?.serviceType) {
-        jobsQuery = query(jobsQuery, where('serviceType', '==', searchParams.serviceType));
-      }
-      
-      if (searchParams?.breeds && searchParams.breeds.length > 0) {
-        jobsQuery = query(jobsQuery, where('breeds', 'array-contains-any', searchParams.breeds));
-      }
-
-      const jobsSnapshot = await getDocs(jobsQuery);
-      const jobResults: SearchResult[] = [];
-
-      // Get all unique owner IDs
-      const ownerIds = Array.from(new Set(
-        jobsSnapshot.docs
-          .map(doc => doc.data().ownerUid)
-          .filter(Boolean)
-      ));
-
-      // Fetch owner profiles in batches of 10
-      const ownerProfiles = new Map<string, { photoUrl?: string }>();
-      for (let i = 0; i < ownerIds.length; i += 10) {
-        const batch = ownerIds.slice(i, i + 10);
-        const ownersQuery = query(collection(db, 'users'), where('__name__', 'in', batch));
-        const ownersSnapshot = await getDocs(ownersQuery);
-        ownersSnapshot.forEach(doc => {
-          ownerProfiles.set(doc.id, doc.data());
-        });
-      }
-
-      jobsSnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.location?.lat && data.location?.lng) {
-          const ownerProfile = ownerProfiles.get(data.ownerUid);
-          jobResults.push({
-            id: doc.id,
-            ownerName: data.ownerName,
-            ownerUid: data.ownerUid,
-            serviceType: data.serviceType,
-            description: data.description,
-            location: data.location,
-            rate: data.rate,
-            rateType: data.rateType,
-            createdAt: data.createdAt,
-            breeds: data.breeds || [],
-            isProvider: false,
-            photoUrl: ownerProfile?.photoUrl,
-            startDate: data.startDate,
-            endDate: data.endDate
-          });
-        }
-      });
-
-      // Fetch service providers
-      const providersCollection = collection(db, 'users') as CollectionReference<DocumentData>;
-      let providersQuery: Query<DocumentData> = query(providersCollection, where('role.host', '==', true));
-      
-      if (searchParams?.breeds && searchParams.breeds.length > 0) {
-        providersQuery = query(providersQuery, where('acceptedBreeds', 'array-contains-any', searchParams.breeds));
-      }
-      
-      const providersSnapshot = await getDocs(providersQuery);
-      const providerResults: SearchResult[] = [];
-
-      // First, collect all provider data and create review fetch promises
-      const providerPromises = providersSnapshot.docs.map(async (doc) => {
-        const data = doc.data();
-        if (data.location?.lat && data.location?.lng) {
-          // Only include providers that offer the selected service type
-          if (!searchParams?.serviceType || data.services?.[searchParams.serviceType]) {
-            const reviewsQuery = query(
-              collection(db, 'reviews'),
-              where('providerId', '==', doc.id)
-            );
-            const reviewsSnapshot = await getDocs(reviewsQuery);
-            const reviews = reviewsSnapshot.docs.map(doc => doc.data());
-            const rating = reviews.length > 0 
-              ? reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length 
-              : 0;
-
-            return {
-              id: doc.id,
-              ownerName: data.name,
-              ownerUid: doc.id,
-              serviceType: Object.entries(data.services || {})
-                .filter(([, enabled]) => enabled)
-                .map(([service]) => service)
-                .join(', '),
-              description: data.bio || '',
-              location: data.location,
-              rate: data.rate || '25',
-              rateType: 'hour',
-              createdAt: data.createdAt || new Date().toISOString(),
-              breeds: data.acceptedBreeds || [],
-              isProvider: true,
-              services: data.services,
-              photoUrl: data.photoUrl,
-              rating,
-              totalReviews: reviews.length
-            };
-          }
-        }
-        return null;
-      });
-
-      // Wait for all provider data to be processed
-      const resolvedProviders = await Promise.all(providerPromises);
-      
-      // Filter out null values and add to results
-      providerResults.push(...resolvedProviders.filter((provider): provider is SearchResult => provider !== null));
-
-      // Filter results based on type
-      let combinedResults = 
-        resultType === 'jobs' ? jobResults :
-        resultType === 'providers' ? providerResults :
-        [...jobResults, ...providerResults];
-
-      // Filter by location if specified
-      if (searchParams?.location && searchParams?.distance) {
-        const distance = searchParams.distance;
-        combinedResults = combinedResults.filter((result) => {
-          const dist = calculateDistance(
-            searchParams.location!.lat,
-            searchParams.location!.lng,
-            result.location.lat,
-            result.location.lng
-          );
-          return dist <= distance;
-        });
-      }
-
-      setSearchResults(combinedResults);
-    } catch (error) {
-      console.error('Error fetching services:', error);
-      setError('Failed to fetch services. Please try again.');
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Add sorting function
@@ -338,7 +400,7 @@ export default function SearchContent() {
               </label>
               <BreedFilter
                 selectedBreeds={selectedBreeds}
-                onBreedsChange={setSelectedBreeds}
+                onChange={setSelectedBreeds}
                 className="w-full"
               />
             </div>
@@ -382,16 +444,26 @@ export default function SearchContent() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Location
               </label>
-              <AddressAutocomplete
-                onSelect={(address) => setSelectedLocation({
-                  lat: address.center[1],
-                  lng: address.center[0]
-                })}
-                value={searchQuery || ''}
-                onChange={(value) => setSearchQuery(value)}
-                placeholder="Enter location..."
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-coral focus:border-transparent"
-              />
+              <div className="relative">
+                <AddressAutocomplete
+                  onSelect={(address) => {
+                    setSelectedLocation({
+                      lat: address.center[1],
+                      lng: address.center[0]
+                    });
+                    setSearchQuery(address.place_name);
+                  }}
+                  value={searchQuery}
+                  onChange={(value) => setSearchQuery(value)}
+                  placeholder={isGettingLocation ? "Getting your location..." : "Enter location..."}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-coral focus:border-transparent"
+                />
+                {isGettingLocation && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded-lg">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-coral"></div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="md:col-span-2">
@@ -469,6 +541,11 @@ export default function SearchContent() {
           <div className="text-center py-12 text-red-600">{error}</div>
         ) : searchResults.length === 0 ? (
           <div className="text-center py-12">
+            {selectedLocation && (
+              <div className="text-sm text-gray-500 mb-4">
+                Searching within {filters.distance} miles of {searchQuery}
+              </div>
+            )}
             <h3 className="text-lg font-medium text-gray-900 mb-2">No results found</h3>
             <p className="text-gray-600">Try adjusting your filters or search terms</p>
           </div>

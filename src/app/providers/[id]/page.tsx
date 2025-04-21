@@ -9,6 +9,7 @@ import dynamic from 'next/dynamic';
 import { useAuth } from '@/lib/auth';
 import ReviewForm from '@/components/ReviewForm';
 import Image from 'next/image';
+import { UserIcon } from '@/components/icons/UserIcon';
 
 // Dynamically import MapComponent to avoid SSR issues
 const MapComponent = dynamic(() => import('@/components/Map'), {
@@ -225,18 +226,19 @@ export default function ProviderDetailsPage() {
 
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex items-center gap-6 mb-6">
-          <div className="relative w-24 h-24 flex-shrink-0">
+          <div className="flex flex-col items-center mb-6">
             {provider.photoUrl ? (
               <Image
                 src={provider.photoUrl}
                 alt={provider.name}
-                fill
-                className="rounded-full object-cover"
+                width={120}
+                height={120}
+                className="rounded-full mb-4"
                 unoptimized
               />
             ) : (
-              <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center">
-                <FaUser className="text-gray-400 text-3xl" />
+              <div className="w-[120px] h-[120px] rounded-full bg-gray-200 flex items-center justify-center mb-4">
+                <UserIcon className="w-16 h-16 text-gray-400" />
               </div>
             )}
           </div>
@@ -247,7 +249,7 @@ export default function ProviderDetailsPage() {
               <div className="flex items-center mt-2">
                 <div className="flex text-yellow-400">
                   {[...Array(5)].map((_, i) => (
-                    <FaStar key={i} className={i < provider.rating ? 'text-yellow-400' : 'text-gray-300'} />
+                    <FaStar key={i} className={i < (provider.rating || 0) ? 'text-yellow-400' : 'text-gray-300'} />
                   ))}
                 </div>
                 <span className="ml-2 text-sm text-gray-600">
@@ -392,10 +394,13 @@ export default function ProviderDetailsPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-4">
                       {review.reviewerPhoto ? (
-                        <img
+                        <Image
                           src={review.reviewerPhoto}
                           alt={review.reviewerName}
-                          className="w-10 h-10 rounded-full"
+                          width={40}
+                          height={40}
+                          className="rounded-full"
+                          unoptimized
                         />
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">

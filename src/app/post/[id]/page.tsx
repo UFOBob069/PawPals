@@ -1,10 +1,10 @@
 import { Metadata } from 'next';
-import JobPostPage from './JobPostPage';
+import JobPostContent from './JobPostContent';
 
 export const metadata: Metadata = {
   title: 'Job Post',
 };
 
 export default function Page({ params }: { params: { id: string } }) {
-  return <JobPostPage params={params} />;
+  return <JobPostContent postId={params.id} />;
 } 

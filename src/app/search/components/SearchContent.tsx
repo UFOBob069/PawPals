@@ -33,6 +33,15 @@ interface Service {
     rating: number;
     [key: string]: any;
   }>;
+  serviceType?: string;
+  rate?: string;
+  rateType?: string;
+  isProvider?: boolean;
+  serviceRates?: Array<{
+    type: string;
+    rate: string;
+    rateType: string;
+  }>;
 }
 
 interface SearchParams {
@@ -53,20 +62,11 @@ interface SearchResult extends Service {
   distance?: number;
   ownerName?: string;
   ownerUid?: string;
-  serviceType?: string;
   description?: string;
-  rate?: string;
-  rateType?: string;
   createdAt?: string;
-  isProvider?: boolean;
   breeds?: string[];
   startDate?: string;
   endDate?: string;
-  serviceRates?: Array<{
-    type: string;
-    rate: string;
-    rateType: string;
-  }>;
 }
 
 type SortOrder = 'none' | 'highToLow' | 'lowToHigh';
@@ -199,18 +199,21 @@ export default function SearchContent() {
         const searchResult: SearchResult = {
           id: jobDoc.id,
           name: jobData.ownerName || '',
-          bio: jobData.description,
+          bio: jobData.description || '',
           serviceType: jobData.serviceType || '',
           location: jobData.location,
           rate: jobData.rate || '',
-          rateType: (jobData.rateType || '').replace(/_/g, ' '), // Replace underscores with spaces
+          rateType: (jobData.rateType || '').replace(/_/g, ' '),
           createdAt: jobData.createdAt || '',
           breeds: jobData.breeds || [],
           photoUrl: ownerPhotoUrl || jobData.photoUrl,
           ownerName: jobData.ownerName || '',
           ownerUid: jobData.ownerUid || '',
           isProvider: false,
-          description: jobData.description || ''
+          description: jobData.description || '',
+          distance: jobData.location && selectedLocation ? 
+            calculateDistance(selectedLocation, jobData.location) : 
+            undefined
         };
         return searchResult;
       }));
@@ -265,9 +268,13 @@ export default function SearchContent() {
           isProvider: true,
           serviceRates: serviceRates.map(rate => ({
             ...rate,
-            rateType: rate.rateType.replace(/_/g, ' ') // Replace underscores with spaces
+            rateType: rate.rateType.replace(/_/g, ' ')
           })),
-          ownerName: serviceData.name || ''
+          ownerName: serviceData.name || '',
+          ownerUid: serviceData.uid || '',
+          distance: serviceData.location && selectedLocation ? 
+            calculateDistance(selectedLocation, serviceData.location) : 
+            undefined
         };
         return searchResult;
       }));
@@ -288,12 +295,7 @@ export default function SearchContent() {
 
         // Location filter
         if (selectedLocation && service.location) {
-          const distance = calculateDistance(
-            selectedLocation.lat,
-            selectedLocation.lng,
-            service.location.lat,
-            service.location.lng
-          );
+          const distance = calculateDistance(selectedLocation, service.location);
           if (distance > (Number(filters.distance) || 10)) {
             return false;
           }
@@ -318,12 +320,7 @@ export default function SearchContent() {
 
         // Location filter
         if (selectedLocation && job.location) {
-          const distance = calculateDistance(
-            selectedLocation.lat,
-            selectedLocation.lng,
-            job.location.lat,
-            job.location.lng
-          );
+          const distance = calculateDistance(selectedLocation, job.location);
           if (distance > (Number(filters.distance) || 10)) {
             return false;
           }
@@ -364,35 +361,13 @@ export default function SearchContent() {
     }
   }, [searchQuery, fetchServices]);
 
-  const calculateDistance = (lat1OrResult: number | SearchResult, lon1?: number, lat2?: number, lon2?: number): number => {
-    let startLat: number, startLng: number, endLat: number, endLng: number;
-
-    if (typeof lat1OrResult === 'object') {
-      // Handle SearchResult object
-      if (!lat1OrResult.location?.lat || !lat1OrResult.location?.lng || !selectedLocation?.lat || !selectedLocation?.lng) {
-        return 0;
-      }
-      startLat = selectedLocation.lat;
-      startLng = selectedLocation.lng;
-      endLat = lat1OrResult.location.lat;
-      endLng = lat1OrResult.location.lng;
-    } else {
-      // Handle coordinate pairs
-      if (typeof lon1 !== 'number' || typeof lat2 !== 'number' || typeof lon2 !== 'number') {
-        return 0;
-      }
-      startLat = lat1OrResult;
-      startLng = lon1;
-      endLat = lat2;
-      endLng = lon2;
-    }
-
+  const calculateDistance = (start: { lat: number; lng: number }, end: { lat: number; lng: number }): number => {
     const R = 6371; // Earth's radius in kilometers
-    const dLat = (endLat - startLat) * Math.PI / 180;
-    const dLon = (endLng - startLng) * Math.PI / 180;
+    const dLat = (end.lat - start.lat) * Math.PI / 180;
+    const dLon = (end.lng - start.lng) * Math.PI / 180;
     const a = 
       Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(startLat * Math.PI / 180) * Math.cos(endLat * Math.PI / 180) * 
+      Math.cos(start.lat * Math.PI / 180) * Math.cos(end.lat * Math.PI / 180) * 
       Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     const d = R * c;
@@ -668,37 +643,37 @@ export default function SearchContent() {
             <p className="text-gray-600">Try adjusting your filters or search terms</p>
           </div>
         ) : viewMode === 'map' ? (
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="h-[calc(100vh-4rem)] w-full">
             <MapComponent
-              markers={searchResults.map((result: SearchResult) => {
-                if (!result.location) return null;
-                
-                return {
+              markers={searchResults
+                .filter((r: SearchResult): r is SearchResult & { location: { lat: number; lng: number } } => 
+                  r.location !== undefined && 
+                  typeof r.location.lat === 'number' && 
+                  typeof r.location.lng === 'number'
+                )
+                .map((result: SearchResult & { location: { lat: number; lng: number } }) => ({
                   id: result.id,
                   position: {
                     lat: result.location.lat,
                     lng: result.location.lng
                   },
-                  title: `${getServiceEmoji(result.serviceType)} ${result.ownerName || ''}`,
-                  serviceType: result.serviceType || '',
-                  description: result.description || '',
+                  title: `${getServiceEmoji(result.serviceType)} ${result.ownerName ?? ''}`,
+                  serviceType: result.serviceType ?? '',
+                  description: result.bio ?? '',
                   rate: result.isProvider && result.serviceRates?.[0]
                     ? `${result.serviceRates[0].rate}/${result.serviceRates[0].rateType}`
-                    : result.rate ? `${result.rate}/${result.rateType}` : '',
-                  isProvider: result.isProvider || false,
-                  detailsUrl: result.isProvider ? `/providers/${result.id}` : `/services/${result.id}`
-                };
-              }).filter(Boolean)}
-              center={selectedLocation || 
-                (searchResults.length > 0 
-                  ? { 
-                      lat: searchResults[0].location.lat, 
-                      lng: searchResults[0].location.lng 
-                    } 
-                  : { lat: 40.7128, lng: -74.0060 })}
+                    : result.rate
+                      ? `${result.rate}/${result.rateType}`
+                      : '',
+                  isProvider: result.isProvider ?? false,
+                  detailsUrl: result.isProvider
+                    ? `/providers/${result.id}`
+                    : `/services/${result.id}`,
+                }))}
+              center={selectedLocation || { lat: 40.7128, lng: -74.0060 }}
               zoom={selectedLocation 
                 ? getZoomForDistance(parseInt(filters.distance)) 
-                : searchResults.length > 0 ? 10 : 8}
+                : 8}
             />
           </div>
         ) : (

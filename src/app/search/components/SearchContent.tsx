@@ -181,7 +181,7 @@ export default function SearchContent() {
         const reviews = reviewsSnapshot.docs.map(reviewDoc => ({
           id: reviewDoc.id,
           ...reviewDoc.data()
-        }));
+        })) as Array<{ id: string; rating: number; [key: string]: any }>;
         
         // Calculate average rating
         const totalRating = reviews.reduce((sum, review) => sum + (review.rating || 0), 0);
@@ -369,6 +369,28 @@ export default function SearchContent() {
       }
     });
   };
+
+  const handleSearchParamsChange = useCallback((prev: URLSearchParams): SearchParams => {
+    const params: SearchParams = {};
+    const serviceType = prev.get('serviceType');
+    const distance = prev.get('distance');
+    const lat = prev.get('lat');
+    const lng = prev.get('lng');
+    const resultType = prev.get('resultType');
+    const sortOrder = prev.get('sortOrder');
+
+    if (serviceType) params.serviceType = serviceType;
+    if (distance) params.distance = distance;
+    if (lat) params.lat = lat;
+    if (lng) params.lng = lng;
+    if (resultType && ['all', 'jobs', 'providers'].includes(resultType)) {
+      params.resultType = resultType as ResultType;
+    }
+    if (sortOrder && ['none', 'highToLow', 'lowToHigh'].includes(sortOrder)) {
+      params.sortOrder = sortOrder as SortOrder;
+    }
+    return params;
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">

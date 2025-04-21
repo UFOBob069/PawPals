@@ -642,13 +642,13 @@ export default function SearchContent() {
                         {result.photoUrl ? (
                           <Image
                             src={result.photoUrl}
-                            alt={result.ownerName}
+                            alt={`Profile photo of ${result.ownerName || 'service provider'}`}
                             fill
                             className="rounded-full object-cover"
                             unoptimized
                           />
                         ) : (
-                          <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center">
+                          <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center" aria-label={`Default profile icon for ${result.ownerName || 'service provider'}`}>
                             <FaUser className="text-gray-400 text-xl" />
                           </div>
                         )}

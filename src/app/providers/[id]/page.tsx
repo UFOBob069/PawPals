@@ -29,6 +29,7 @@ interface Review {
   reviewerName: string;
   reviewerPhoto?: string;
   serviceType: string;
+  reviewerId: string;
 }
 
 interface ProviderDetails {
@@ -144,28 +145,65 @@ export default function ProviderDetailsPage() {
         });
 
         // Fetch reviews
-        const reviewsQuery = query(
-          collection(db, 'reviews'),
-          where('providerId', '==', params.id)
-        );
-        const reviewsSnapshot = await getDocs(reviewsQuery);
-        const reviewsData = reviewsSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            createdAt: data.createdAt?.toDate?.() || new Date(),
-          };
-        }) as Review[];
-        
-        setReviews(reviewsData.sort((a, b) => 
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        ));
+        try {
+          const reviewsQuery = query(
+            collection(db, 'reviews'),
+            where('providerId', '==', params.id)
+          );
+          const reviewsSnapshot = await getDocs(reviewsQuery);
+          console.log('Reviews snapshot:', reviewsSnapshot.docs.length, 'reviews found'); // Debug log
+          
+          const reviewsData = reviewsSnapshot.docs.map(doc => {
+            const data = doc.data();
+            console.log('Review data:', data); // Debug log
+            
+            // Ensure we have a valid date
+            let createdDate;
+            if (data.createdAt?.toDate) {
+              createdDate = data.createdAt.toDate();
+            } else if (data.createdAt) {
+              createdDate = new Date(data.createdAt);
+            } else {
+              createdDate = new Date();
+            }
 
-        // Calculate average rating
-        if (reviewsData.length > 0) {
-          const avgRating = reviewsData.reduce((acc, review) => acc + review.rating, 0) / reviewsData.length;
-          setAverageRating(avgRating);
+            return {
+              id: doc.id,
+              rating: Number(data.rating) || 0,
+              comment: data.comment || '',
+              createdAt: createdDate.toLocaleDateString(),
+              reviewerName: data.reviewerName || 'Anonymous',
+              reviewerPhoto: data.reviewerPhoto,
+              serviceType: data.serviceType || 'General',
+              reviewerId: data.reviewerId || ''
+            };
+          });
+          
+          // Sort reviews by date
+          const sortedReviews = reviewsData.sort((a, b) => {
+            const dateA = new Date(b.createdAt).getTime();
+            const dateB = new Date(a.createdAt).getTime();
+            return dateA - dateB;
+          });
+          
+          console.log('Processed reviews:', sortedReviews); // Debug log
+          setReviews(sortedReviews);
+
+          // Calculate average rating
+          if (reviewsData.length > 0) {
+            const avgRating = reviewsData.reduce((acc, review) => acc + review.rating, 0) / reviewsData.length;
+            const roundedRating = Math.round(avgRating * 10) / 10;
+            setAverageRating(roundedRating);
+            
+            // Update provider state with rating info
+            setProvider(prev => ({
+              ...prev!,
+              rating: roundedRating,
+              totalReviews: reviewsData.length
+            }));
+          }
+        } catch (err) {
+          console.error('Error fetching reviews:', err);
         }
       } catch (err) {
         console.error('Error fetching provider details:', err);
@@ -226,18 +264,19 @@ export default function ProviderDetailsPage() {
 
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex items-center gap-6 mb-6">
-          <div className="flex flex-col items-center mb-6">
+          <div className="flex-shrink-0">
             {provider.photoUrl ? (
               <Image
                 src={provider.photoUrl}
                 alt={provider.name}
                 width={120}
                 height={120}
-                className="rounded-full mb-4"
+                className="rounded-full object-cover w-[120px] h-[120px]"
                 unoptimized
+                priority
               />
             ) : (
-              <div className="w-[120px] h-[120px] rounded-full bg-gray-200 flex items-center justify-center mb-4">
+              <div className="w-[120px] h-[120px] rounded-full bg-gray-200 flex items-center justify-center">
                 <UserIcon className="w-16 h-16 text-gray-400" />
               </div>
             )}
@@ -306,16 +345,6 @@ export default function ProviderDetailsPage() {
             </div>
           </div>
         )}
-
-        <div className="mb-6">
-          <a
-            href={`/chat/${provider.id}`}
-            className="block w-full text-center bg-primary-navy text-white py-3 px-4 rounded-lg 
-                     hover:bg-primary-navy/90 transition-colors duration-200 font-medium"
-          >
-            Contact Provider
-          </a>
-        </div>
 
         {provider.location?.lat && provider.location?.lng && (
           <div className="h-[300px] w-full rounded-lg overflow-hidden mb-6">
@@ -412,7 +441,7 @@ export default function ProviderDetailsPage() {
                           <h3 className="font-medium text-gray-900">{review.reviewerName}</h3>
                           <span className="mx-2 text-gray-300">•</span>
                           <span className="text-sm text-gray-500">
-                            {formatDate(review.createdAt)}
+                            {review.createdAt}
                           </span>
                         </div>
                         <div className="flex items-center mt-1">
@@ -433,7 +462,8 @@ export default function ProviderDetailsPage() {
           )}
         </div>
 
-        <div className="mt-6">
+        {/* Contact Provider Button - Only appears at the bottom */}
+        <div className="mt-8">
           <a
             href={`/chat/${provider.id}`}
             className="block w-full text-center bg-primary-navy text-white py-3 px-4 rounded-lg 

@@ -34,6 +34,16 @@ service cloud.firestore {
       }
     }
     
+    // Allow access to root-level reviews collection
+    match /reviews/{reviewId} {
+      allow read: if true; // Anyone can read reviews
+      allow create: if isAuthenticated() 
+        && request.auth.uid == request.resource.data.reviewerId
+        && request.auth.uid != request.resource.data.providerId; // Can't review yourself
+      allow update, delete: if isAuthenticated() 
+        && resource.data.reviewerId == request.auth.uid; // Only review author can edit/delete
+    }
+    
     // Allow authenticated users to read and write their own messages
     match /messages/{messageId} {
       allow read: if isAuthenticated() 

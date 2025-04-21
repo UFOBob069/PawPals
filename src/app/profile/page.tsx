@@ -19,6 +19,7 @@ interface Review {
   reviewerName: string;
   reviewerPhoto?: string;
   serviceType: string;
+  reviewerId: string;
 }
 
 interface JobPost {
@@ -169,24 +170,38 @@ export default function ProfilePage() {
       if (!user) return;
 
       try {
+        // Fetch reviews where the current user is the provider
         const reviewsQuery = query(
           collection(db, 'reviews'),
           where('providerId', '==', user.uid)
         );
         const reviewsSnapshot = await getDocs(reviewsQuery);
-        const reviewsData = reviewsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Review[];
+        const reviewsData = reviewsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          const createdAt = data.createdAt?.toDate?.() || new Date();
+          return {
+            id: doc.id,
+            rating: Number(data.rating) || 0,
+            comment: data.comment || '',
+            createdAt: createdAt.toLocaleDateString(),
+            reviewerName: data.reviewerName || 'Anonymous',
+            reviewerPhoto: data.reviewerPhoto,
+            serviceType: data.serviceType || 'General',
+            reviewerId: data.reviewerId || ''
+          };
+        });
         
-        setReviews(reviewsData.sort((a, b) => 
+        // Sort reviews by date (newest first)
+        const sortedReviews = reviewsData.sort((a, b) => 
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        ));
+        );
+        
+        setReviews(sortedReviews);
 
         // Calculate average rating
         if (reviewsData.length > 0) {
           const avgRating = reviewsData.reduce((acc, review) => acc + review.rating, 0) / reviewsData.length;
-          setAverageRating(avgRating);
+          setAverageRating(Math.round(avgRating * 10) / 10);
         }
       } catch (err) {
         console.error('Error fetching reviews:', err);

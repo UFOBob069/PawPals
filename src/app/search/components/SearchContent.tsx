@@ -62,6 +62,11 @@ interface SearchResult extends Service {
   breeds?: string[];
   startDate?: string;
   endDate?: string;
+  serviceRates?: Array<{
+    type: string;
+    rate: string;
+    rateType: string;
+  }>;
 }
 
 type SortOrder = 'none' | 'highToLow' | 'lowToHigh';
@@ -76,8 +81,10 @@ const MapComponent = dynamic(() => import('@/components/Map'), {
   ),
 });
 
-const getServiceEmoji = (serviceType: string) => {
-  switch (serviceType?.toLowerCase()) {
+const getServiceEmoji = (serviceType: string | undefined): string => {
+  if (!serviceType) return '🐕';
+  
+  switch (serviceType.toLowerCase()) {
     case 'walk':
       return '🦮';
     case 'daycare':
@@ -172,55 +179,95 @@ export default function SearchContent() {
   const fetchServices = useCallback(async () => {
     setLoading(true);
     try {
+      // Query for job posts
+      const jobsQuery = query(collection(db, 'jobs'));
+      const jobsSnapshot = await getDocs(jobsQuery);
+      const jobsData = await Promise.all(jobsSnapshot.docs.map(async (jobDoc) => {
+        const jobData = jobDoc.data();
+        
+        // Fetch the owner's profile to get their photo
+        let ownerPhotoUrl: string | undefined;
+        if (jobData.ownerUid) {
+          const ownerRef = doc(db, 'users', jobData.ownerUid);
+          const ownerSnap = await getDoc(ownerRef);
+          if (ownerSnap.exists()) {
+            const ownerData = ownerSnap.data();
+            ownerPhotoUrl = ownerData?.photoUrl;
+          }
+        }
+
+        const searchResult: SearchResult = {
+          id: jobDoc.id,
+          name: jobData.ownerName || '',
+          bio: jobData.description,
+          serviceType: jobData.serviceType || '',
+          location: jobData.location,
+          rate: jobData.rate || '',
+          rateType: (jobData.rateType || '').replace(/_/g, ' '), // Replace underscores with spaces
+          createdAt: jobData.createdAt || '',
+          breeds: jobData.breeds || [],
+          photoUrl: ownerPhotoUrl || jobData.photoUrl,
+          ownerName: jobData.ownerName || '',
+          ownerUid: jobData.ownerUid || '',
+          isProvider: false,
+          description: jobData.description || ''
+        };
+        return searchResult;
+      }));
+
       // Query for service providers
       const servicesQuery = query(collection(db, 'users'), where('role.host', '==', true));
       const servicesSnapshot = await getDocs(servicesQuery);
-      const servicesData = await Promise.all(servicesSnapshot.docs.map(async doc => {
-        const serviceData = doc.data();
+      const servicesData = await Promise.all(servicesSnapshot.docs.map(async (serviceDoc) => {
+        const serviceData = serviceDoc.data();
         
         // Fetch reviews for this provider
-        const reviewsQuery = query(collection(db, 'users', doc.id, 'reviews'));
+        const reviewsQuery = query(
+          collection(db, 'reviews'),
+          where('providerId', '==', serviceDoc.id)
+        );
         const reviewsSnapshot = await getDocs(reviewsQuery);
-        const reviews = reviewsSnapshot.docs.map(reviewDoc => ({
-          id: reviewDoc.id,
-          ...reviewDoc.data()
-        })) as Array<{ id: string; rating: number; [key: string]: any }>;
+        const reviews = reviewsSnapshot.docs.map(reviewDoc => {
+          const reviewData = reviewDoc.data();
+          return {
+            id: reviewDoc.id,
+            rating: Number(reviewData.rating) || 0,
+            comment: reviewData.comment || '',
+            createdAt: reviewData.createdAt || '',
+            reviewerName: reviewData.reviewerName || ''
+          };
+        });
+
+        // Calculate average rating
+        const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+        const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
         
+        // Calculate service rates
+        const serviceRates = Object.entries(serviceData.services || {})
+          .filter(([_, enabled]) => enabled)
+          .map(([service]) => ({
+            type: service,
+            rate: serviceData.rates?.[service]?.rate || '25',
+            rateType: serviceData.rates?.[service]?.rateType || 'hour'
+          }));
+
         const searchResult: SearchResult = {
-          id: doc.id,
+          id: serviceDoc.id,
           name: serviceData.name || '',
           bio: serviceData.bio || '',
           services: serviceData.services,
           acceptedBreeds: serviceData.acceptedBreeds || [],
           location: serviceData.location,
           photoUrl: serviceData.photoUrl,
-          rating: reviews.length > 0 ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0,
+          rating: Math.round(averageRating * 10) / 10,
           totalReviews: reviews.length,
           reviews: reviews,
-          isProvider: true
-        };
-        return searchResult;
-      }));
-
-      // Query for job posts
-      const jobsQuery = query(collection(db, 'jobs'));
-      const jobsSnapshot = await getDocs(jobsQuery);
-      const jobsData = await Promise.all(jobsSnapshot.docs.map(async doc => {
-        const jobData = doc.data();
-        const searchResult: SearchResult = {
-          id: doc.id,
-          name: jobData.ownerName || '',
-          bio: jobData.description,
-          serviceType: jobData.serviceType || '',
-          location: jobData.location,
-          rate: jobData.rate || '',
-          rateType: jobData.rateType || '',
-          createdAt: jobData.createdAt || '',
-          breeds: jobData.breeds || [],
-          photoUrl: jobData.photoUrl,
-          ownerName: jobData.ownerName || '',
-          ownerUid: jobData.ownerUid || '',
-          isProvider: false
+          isProvider: true,
+          serviceRates: serviceRates.map(rate => ({
+            ...rate,
+            rateType: rate.rateType.replace(/_/g, ' ') // Replace underscores with spaces
+          })),
+          ownerName: serviceData.name || ''
         };
         return searchResult;
       }));
@@ -361,18 +408,26 @@ export default function SearchContent() {
   };
 
   // Add sorting function
-  const getSortedResults = (results: SearchResult[]) => {
+  const getSortedResults = (results: SearchResult[]): SearchResult[] => {
     if (sortOrder === 'none') return results;
     
     return [...results].sort((a, b) => {
-      const priceA = parseFloat(a.rate);
-      const priceB = parseFloat(b.rate);
-      
-      if (sortOrder === 'highToLow') {
-        return priceB - priceA;
-      } else {
-        return priceA - priceB;
+      let rateA = 0;
+      let rateB = 0;
+
+      if (a.isProvider && a.serviceRates?.[0]?.rate) {
+        rateA = parseFloat(a.serviceRates[0].rate);
+      } else if (a.rate) {
+        rateA = parseFloat(a.rate);
       }
+
+      if (b.isProvider && b.serviceRates?.[0]?.rate) {
+        rateB = parseFloat(b.serviceRates[0].rate);
+      } else if (b.rate) {
+        rateB = parseFloat(b.rate);
+      }
+
+      return sortOrder === 'highToLow' ? rateB - rateA : rateA - rateB;
     });
   };
 
@@ -464,7 +519,12 @@ export default function SearchContent() {
               </label>
               <select
                 value={filters.serviceType}
-                onChange={(e) => setFilters(prev => ({ ...prev, serviceType: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                  setFilters((prevFilters: Filters) => ({ 
+                    ...prevFilters, 
+                    serviceType: e.target.value 
+                  }))
+                }
                 className="w-full p-2 border border-gray-300 rounded-lg"
               >
                 <option value="">All Services</option>
@@ -483,7 +543,12 @@ export default function SearchContent() {
               </label>
               <select
                 value={filters.distance}
-                onChange={(e) => setFilters(prev => ({ ...prev, distance: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                  setFilters((prevFilters: Filters) => ({ 
+                    ...prevFilters, 
+                    distance: e.target.value 
+                  }))
+                }
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-coral focus:border-transparent"
               >
                 <option value="5">Within 5 miles</option>
@@ -605,20 +670,25 @@ export default function SearchContent() {
         ) : viewMode === 'map' ? (
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             <MapComponent
-              markers={searchResults.map(result => ({
-                id: result.id,
-                position: {
-                  lat: result.location.lat,
-                  lng: result.location.lng
-                },
-                title: `${getServiceEmoji(result.serviceType)} ${result.ownerName}`,
-                serviceType: result.serviceType,
-                description: result.description,
-                rate: result.rate,
-                rateType: result.rateType,
-                isProvider: result.isProvider,
-                detailsUrl: result.isProvider ? `/providers/${result.id}` : `/services/${result.id}`
-              }))}
+              markers={searchResults.map((result: SearchResult) => {
+                if (!result.location) return null;
+                
+                return {
+                  id: result.id,
+                  position: {
+                    lat: result.location.lat,
+                    lng: result.location.lng
+                  },
+                  title: `${getServiceEmoji(result.serviceType)} ${result.ownerName || ''}`,
+                  serviceType: result.serviceType || '',
+                  description: result.description || '',
+                  rate: result.isProvider && result.serviceRates?.[0]
+                    ? `${result.serviceRates[0].rate}/${result.serviceRates[0].rateType}`
+                    : result.rate ? `${result.rate}/${result.rateType}` : '',
+                  isProvider: result.isProvider || false,
+                  detailsUrl: result.isProvider ? `/providers/${result.id}` : `/services/${result.id}`
+                };
+              }).filter(Boolean)}
               center={selectedLocation || 
                 (searchResults.length > 0 
                   ? { 
@@ -655,12 +725,29 @@ export default function SearchContent() {
                       </div>
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900">
-                          {getServiceEmoji(result.serviceType)} {result.ownerName}
+                          {result.isProvider ? result.name : result.ownerName}
                         </h3>
                         <p className="text-sm text-gray-500">
-                          {result.isProvider ? 'Service Provider' : `Job Post - ${result.serviceType.charAt(0).toUpperCase() + result.serviceType.slice(1).replace(/([A-Z])/g, ' $1')}`}
+                          {result.isProvider ? (
+                            <>
+                              Service Provider
+                              {result.services && Object.entries(result.services)
+                                .filter(([_, enabled]) => enabled)
+                                .map(([service]) => getServiceEmoji(service))
+                                .join(' ')}
+                            </>
+                          ) : (
+                            <>
+                              Job Post - {result.serviceType ? getServiceEmoji(result.serviceType) : null} 
+                              {result.serviceType ? 
+                                result.serviceType.charAt(0).toUpperCase() + 
+                                result.serviceType.slice(1).replace(/([A-Z])/g, ' $1')
+                                : 'Unknown Service'
+                              }
+                            </>
+                          )}
                         </p>
-                        {result.isProvider && (
+                        {result.isProvider && result.rating !== undefined && (
                           <div className="flex items-center gap-1 mt-1">
                             <div className="flex">
                               {[...Array(5)].map((_, i) => (
@@ -671,19 +758,25 @@ export default function SearchContent() {
                                 />
                               ))}
                             </div>
-                            {result.totalReviews > 0 && (
-                              <span className="text-sm text-gray-500">
-                                ({result.totalReviews})
-                              </span>
-                            )}
+                            <span className="text-sm text-gray-500">
+                              ({result.totalReviews || 0})
+                            </span>
                           </div>
                         )}
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-medium text-primary-coral">
-                        ${result.rate}/{result.rateType}
-                      </p>
+                      {result.isProvider ? (
+                        result.serviceRates && result.serviceRates.length > 0 && (
+                          <p className="text-lg font-medium text-primary-coral">
+                            From ${result.serviceRates[0].rate}/{result.serviceRates[0].rateType.replace(/_/g, ' ')}
+                          </p>
+                        )
+                      ) : (
+                        <p className="text-lg font-medium text-primary-coral">
+                          ${result.rate}/{result.rateType}
+                        </p>
+                      )}
                     </div>
                   </div>
                   {!result.isProvider && result.startDate && result.endDate && (
@@ -694,7 +787,7 @@ export default function SearchContent() {
                       </div>
                     </div>
                   )}
-                  <p className="mt-2 text-gray-600 line-clamp-3">{result.description}</p>
+                  <p className="mt-2 text-gray-600 line-clamp-3">{result.isProvider ? result.bio : result.description}</p>
                   <div className="mt-4">
                     <a
                       href={result.isProvider ? `/providers/${result.id}` : `/services/${result.id}`}
